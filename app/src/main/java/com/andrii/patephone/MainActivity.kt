@@ -9,7 +9,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +24,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
@@ -38,11 +39,14 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.ShuffleOn
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -56,25 +60,20 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.andrii.patephone.action.PlayerAction
 import com.andrii.patephone.ui.theme.ApplicationTheme
-import com.andrii.patephone.ui.theme.MainViewModel
+import com.andrii.patephone.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.core.content.ContextCompat
+import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
-import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
-import coil.request.ImageRequest
 import com.andrii.patephone.action.MusicServiceConnection
-import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 
 
@@ -82,6 +81,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject
     lateinit var musicServiceConnection: MusicServiceConnection
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -144,8 +144,58 @@ fun MainPreview() {
                 ArtworkFrame(onActionImport = {}, null, "sdjfgklsjdfklgjsedlkfjgs;ldjfgsdfgj;olsj")
                 Slider({}, 0.5f)
                 ButtonRow({}, isPlaying = false, isShuffleEnabled = true, repeatMode = 0)
-                TitleFrame("Nothing")
+                TitleFrame("Nothing") {}
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+
+@Composable
+fun MainColumn(viewModel: MainViewModel = hiltViewModel()) {
+    var showBottomSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+    val playlist by viewModel.playlist.collectAsStateWithLifecycle()
+
+    Column(
+        modifier = Modifier
+            .padding(32.dp, 72.dp, 32.dp, 72.dp)
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
+    )
+    {
+        ArtworkFrame(
+            onActionImport = { uri -> viewModel.onActionImport(uri) },
+            viewModel.artworkUri.collectAsState().value,
+            viewModel.artist.collectAsState().value
+        )
+        Slider(
+            onAction = { float -> viewModel.onSliderMove(float) },
+            progress = viewModel.progress.collectAsState().value
+        )
+        ButtonRow(
+            onAction = { action -> viewModel.onAction(action) },
+            isPlaying = viewModel.isPlaying.collectAsState().value,
+            isShuffleEnabled = viewModel.isShuffleEnabled.collectAsState().value,
+            repeatMode = viewModel.repeatMode.collectAsState().value
+        )
+        TitleFrame(viewModel.title.collectAsState().value, onClick = { showBottomSheet =
+            playlist.isNotEmpty()
+        })
+    }
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showBottomSheet = false },
+            sheetState = sheetState
+        ) {
+            Playlist(
+                playlist,
+                { index ->
+                    viewModel.seekToMedia(index)
+                }, viewModel.currentSongIndex.collectAsState().value
+            )
         }
     }
 }
@@ -153,11 +203,13 @@ fun MainPreview() {
 @Composable
 fun TextUnderArtwork(onActionImport: (Uri?) -> Unit, artist: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(artist,
+        Text(
+            artist,
             Modifier
                 .weight(1f)
                 .padding(12.dp, 0.dp, 12.dp, 0.dp),
-            maxLines = 1)
+            maxLines = 1
+        )
         ImportButton(onActionImport)
     }
 }
@@ -173,41 +225,44 @@ fun ImportButton(onActionImport: (Uri?) -> Unit) {
         "Import",
         fontWeight = FontWeight.Bold,
         fontStyle = FontStyle.Italic,
-        modifier = Modifier.clickable { launcher.launch(null) })
+        modifier = Modifier.clickable {
+            launcher.launch(null)
+        })
 }
 
 @Composable
-fun MainColumn(viewModel: MainViewModel = hiltViewModel()) {
-    Column(
-        modifier = Modifier
-            .padding(32.dp, 72.dp, 32.dp, 72.dp)
-            .fillMaxSize(),
+fun Playlist(
+    playlist: Array<String>,
+    onAction: (index: Int) -> Unit,
+    currentSongIndex: Int
+) {
+    LazyColumn(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
-    )
-    {
-        ArtworkFrame(
-//            onActionImport = { uri -> viewModel.onActionImport(uri) },
-            onActionImport = { uri -> viewModel.onActionImport(uri)},
-            viewModel.imageUri.collectAsState().value,
-            viewModel.artist.collectAsState().value
-        )
-        Slider(
-            onAction = { float -> viewModel.onSliderMove(float) },
-            progress = viewModel.progress.collectAsState().value
-        )
-        ButtonRow(
-            onAction = { action -> viewModel.onAction(action) },
-            isPlaying = viewModel.isPlaying.collectAsState().value,
-            isShuffleEnabled = viewModel.isShuffleEnabled.collectAsState().value,
-            repeatMode = viewModel.repeatMode.collectAsState().value
-        )
-        TitleFrame(viewModel.title.collectAsState().value)
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        itemsIndexed(playlist) { index, song ->
+            Text(text = song,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                .clickable{
+                onAction(index)
+            }
+                .then(
+                    if (index == currentSongIndex){
+                        Modifier
+                            .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(8.dp))
+                            .padding(8.dp, 0.dp)
+                    } else {
+                        Modifier
+                    })
+            )
+            Spacer(Modifier.size(8.dp))
+        }
     }
 }
 
 @Composable
-fun ArtworkFrame(onActionImport: (Uri?) -> Unit, imageUri: Uri?, artist: String) {
+fun ArtworkFrame(onActionImport: (Uri?) -> Unit, artworkUri: Uri?, artist: String) {
     Box(
         Modifier
             .padding(24.dp, 24.dp, 24.dp, 0.dp)
@@ -220,19 +275,19 @@ fun ArtworkFrame(onActionImport: (Uri?) -> Unit, imageUri: Uri?, artist: String)
         contentAlignment = Alignment.Center
     )
     {
+        Log.d("debug", artworkUri.toString())
         SubcomposeAsyncImage(
-            model = imageUri,
+            model = artworkUri,
             contentDescription = null,
             modifier = Modifier
                 .clip(RoundedCornerShape(32.dp))
         ) {
             val state = painter.state
             if (state is AsyncImagePainter.State.Loading || state is AsyncImagePainter.State.Error) {
-                // Здесь мы просто используем обычную иконку, которой легко задать цвет
                 Icon(
                     imageVector = Icons.Default.BrokenImage,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.background, // Задаем любой цвет
+                    tint = MaterialTheme.colorScheme.background
                 )
             } else {
                 SubcomposeAsyncImageContent()
@@ -241,7 +296,6 @@ fun ArtworkFrame(onActionImport: (Uri?) -> Unit, imageUri: Uri?, artist: String)
     }
     TextUnderArtwork(onActionImport, artist)
 }
-
 
 
 @Composable
@@ -271,7 +325,7 @@ fun Slider(onAction: (Float) -> Unit, progress: Float) {
 }
 
 @Composable
-fun TitleFrame(title: String) {
+fun TitleFrame(title: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .padding(32.dp, 0.dp, 32.dp, 0.dp)
@@ -280,7 +334,8 @@ fun TitleFrame(title: String) {
             .background(
                 MaterialTheme.colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(24.dp)
-            ),
+            )
+            .clickable { onClick() },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
@@ -320,7 +375,10 @@ fun ButtonRow(
                     .fillMaxWidth()
             )
             {
-                Icon(imageVector = if (isShuffleEnabled)Icons.Default.ShuffleOn else Icons.Default.Shuffle, contentDescription = null)
+                Icon(
+                    imageVector = if (isShuffleEnabled) Icons.Default.ShuffleOn else Icons.Default.Shuffle,
+                    contentDescription = null
+                )
             }
 
             Spacer(Modifier.size(8.dp))
@@ -333,11 +391,13 @@ fun ButtonRow(
                     .fillMaxWidth()
             )
             {
-                Icon(imageVector = when (repeatMode){
-                    Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
-                    Player.REPEAT_MODE_ALL -> Icons.Default.RepeatOn
-                    else -> Icons.Default.Repeat
-                }, contentDescription = null)
+                Icon(
+                    imageVector = when (repeatMode) {
+                        Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
+                        Player.REPEAT_MODE_ALL -> Icons.Default.RepeatOn
+                        else -> Icons.Default.Repeat
+                    }, contentDescription = null
+                )
             }
         }
 

@@ -1,0 +1,9 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <PreferenceCategory android:title="Import settings">
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="artworkEnable"
+            android:title="Use artwork from metadata" />
+    </PreferenceCategory>
+</PreferenceScreen>

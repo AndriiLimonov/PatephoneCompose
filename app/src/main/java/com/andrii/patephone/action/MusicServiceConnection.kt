@@ -17,11 +17,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.internal.EMPTY_BYTE_ARRAY
 import javax.inject.Inject
 
 class MusicServiceConnection @Inject constructor(
@@ -32,16 +34,17 @@ class MusicServiceConnection @Inject constructor(
     private val _isShuffleEnabled = MutableStateFlow(false)
     private val _artist = MutableStateFlow("Artist")
     private val _title = MutableStateFlow("Absolutely nothing")
-
-
     private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
+    private val _currentSongIndex = MutableStateFlow(0)
+    private val _artworkUri = MutableStateFlow<Uri?>(null)
+    val artworkUri = _artworkUri.asStateFlow()
+    val currentSongIndex = _currentSongIndex.asStateFlow()
     val repeatMode = _repeatMode.asStateFlow()
     val title = _title.asStateFlow()
     val artist = _artist.asStateFlow()
     val progress = _progress.asStateFlow()
     val isPlaying = _isPlaying.asStateFlow()
     val isShuffleEnabled = _isShuffleEnabled.asStateFlow()
-
 
     private var mediaController: MediaController? = null
 
@@ -72,11 +75,20 @@ class MusicServiceConnection @Inject constructor(
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     super.onMediaItemTransition(mediaItem, reason)
-                    _artist.value = mediaItem?.mediaMetadata?.artist?.toString() ?: "Unknown"
-                    _title.value = mediaItem?.mediaMetadata?.title?.toString() ?: "Untitled"
+                    _artworkUri.value = mediaItem?.mediaMetadata?.artworkUri
+                    updateSongMetaData()
+                    _currentSongIndex.value =
+                        mediaController?.currentMediaItemIndex ?: 0
                 }
             })
         }, MoreExecutors.directExecutor())
+    }
+
+    private fun updateSongMetaData() {
+        _title.value =
+            mediaController?.currentMediaItem?.mediaMetadata?.title?.toString() ?: "Untitled"
+        _artist.value =
+            mediaController?.currentMediaItem?.mediaMetadata?.artist?.toString() ?: "Unknown"
     }
 
     private var job: Job? = null
@@ -88,44 +100,92 @@ class MusicServiceConnection @Inject constructor(
             while (true) {
                 val pos = mediaController?.currentPosition?.toFloat() ?: 0f
                 val dur = mediaController?.duration?.toFloat() ?: 1f
-                 _progress.value = pos / dur
+                _progress.value = pos / dur
                 delay(1000L)
             }
         }
+    }
+
+    fun play() = mediaController?.play()
+
+    fun pause() = mediaController?.pause()
+    fun stop() = mediaController?.stop()
+    fun skipToNext() = mediaController?.seekToNext()
+    fun skipToPrevious() = mediaController?.seekToPrevious()
+    fun seekTo(position: Long) = mediaController?.seekTo(position)
+    fun addMediaItem(mediaItem: MediaItem) {
+        mediaController?.addMediaItem(mediaItem)
+    }
+
+    fun getMediaItemCount(): Int {
+        return mediaController?.mediaItemCount ?: 0
+    }
+
+    fun seekToMediaItem(index: Int) {
+        mediaController?.seekTo(index, 0)
+    }
+
+    fun addMediaItems(arr: ArrayList<MediaItem>) {
+        mediaController?.addMediaItems(arr)
     }
 
     fun stopTracking() {
         job?.cancel()
     }
 
-    fun play() = mediaController?.play()
-    fun pause() = mediaController?.pause()
-    fun skipToNext() = mediaController?.seekToNext()
-    fun skipToPrevious() = mediaController?.seekToPrevious()
-    fun seekTo(position: Long) = mediaController?.seekTo(position)
-    fun addMediaItem(mediaItem: MediaItem){mediaController?.addMediaItem(mediaItem)}
-    fun getMediaItemCount(): Int {return mediaController?.mediaItemCount ?: 0}
-
     fun onDestroy() {
-        mediaController?.stop()
+        job?.cancel()
+        scope.cancel()
+        returnToDefaults()
+
+
         mediaController?.release()
         mediaController = null
+        Log.d("MusicServiceConnection", "Singleton manager destroyed")
+    }
+
+    private fun returnToDefaults() {
+        _progress.value = 0f
+        _isPlaying.value = false
+        _title.value = "Absolutely nothing"
+        _artist.value = "Artist"
+    }
+
+    suspend fun clearArtworkCache() = withContext(Dispatchers.IO) {
+        Log.d("MusicServiceConnection", "Clearing cached artworks...")
+        try {
+            val cacheDir = context.cacheDir
+            val artworkFiles = cacheDir.listFiles { _, name ->
+                name.startsWith("artwork_") && name.endsWith(".jpg")
+            }
+
+            artworkFiles?.forEach { file ->
+                if (file.exists()) {
+                    file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        Log.d("MusicServiceConnection", "Artworks cleaned!")
     }
 
     fun getDuration() = mediaController?.duration ?: 0
-    fun toggleShuffle () {
+    fun toggleShuffle() {
         val mode = isShuffleEnabled.value
         mediaController?.shuffleModeEnabled = !mode
         _isShuffleEnabled.value = !mode
     }
-        fun toggleRepeat() {
-        when (mediaController?.repeatMode){
+
+    fun toggleRepeat() {
+        if (mediaController == null) return
+        when (mediaController?.repeatMode) {
             Player.REPEAT_MODE_ALL -> mediaController?.repeatMode = Player.REPEAT_MODE_ONE
             Player.REPEAT_MODE_ONE -> mediaController?.repeatMode = Player.REPEAT_MODE_OFF
             else -> mediaController?.repeatMode = Player.REPEAT_MODE_ALL
         }
-        _repeatMode.value = mediaController?.repeatMode ?: _repeatMode.value
+        _repeatMode.value = mediaController!!.repeatMode
     }
 
-     fun clearMediaItems() = mediaController?.clearMediaItems()
+    fun clearMediaItems() = mediaController?.clearMediaItems()
 }

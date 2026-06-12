@@ -1,4 +1,4 @@
-package com.andrii.patephone.action
+package com.andrii.patephone
 
 import android.content.Context
 import com.andrii.patephone.action.MusicServiceConnection
