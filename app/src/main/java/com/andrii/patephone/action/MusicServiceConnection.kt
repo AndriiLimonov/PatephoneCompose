@@ -3,6 +3,7 @@ package com.andrii.patephone.action
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -10,6 +11,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.andrii.patephone.MediaItemBuilder
 import com.andrii.patephone.UpdatedService
 import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,8 +25,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.internal.EMPTY_BYTE_ARRAY
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 class MusicServiceConnection @Inject constructor(
     @param:ApplicationContext private val context: Context
@@ -75,20 +77,49 @@ class MusicServiceConnection @Inject constructor(
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     super.onMediaItemTransition(mediaItem, reason)
-                    _artworkUri.value = mediaItem?.mediaMetadata?.artworkUri
-                    updateSongMetaData()
-                    _currentSongIndex.value =
-                        mediaController?.currentMediaItemIndex ?: 0
+                    Log.d("MusicServiceConnection", "Media item transition")
+
+                    if (mediaItem?.mediaMetadata?.title == null) {
+                        lazyEnrichment()
+                    }
+
+                    // Reset shuffle
+                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK){
+                        mediaController?.shuffleModeEnabled = false
+                        mediaController?.shuffleModeEnabled = true
+                    }
+                    updateUI(mediaController?.currentMediaItem)
                 }
             })
         }, MoreExecutors.directExecutor())
     }
 
-    private fun updateSongMetaData() {
+    fun lazyEnrichment() {
+        val mediaItem = mediaController?.currentMediaItem
+        if (mediaItem == null || mediaController == null) return
+        val currentIndex = mediaController!!.currentPeriodIndex
+        val mediaID = mediaItem.mediaId
+
+        val updatedMediaItem = MediaItemBuilder(
+            context = context,
+            retriever = MediaMetadataRetriever(),
+            customArtwork = mediaItem.mediaMetadata.artworkUri,
+            seekArtwork = true,
+            mediaID = mediaID
+        ).buildUpon(mediaItem)
+
+        mediaController!!.replaceMediaItem(currentIndex, updatedMediaItem)
+    }
+
+    private fun updateUI(mediaItem: MediaItem?) {
         _title.value =
-            mediaController?.currentMediaItem?.mediaMetadata?.title?.toString() ?: "Untitled"
+            mediaItem?.mediaMetadata?.title?.toString() ?: "Untitled"
         _artist.value =
-            mediaController?.currentMediaItem?.mediaMetadata?.artist?.toString() ?: "Unknown"
+            mediaItem?.mediaMetadata?.artist?.toString() ?: "Unknown"
+        _artworkUri.value =
+            mediaItem?.mediaMetadata?.artworkUri
+        _currentSongIndex.value =
+            mediaController?.currentMediaItemIndex ?: 0
     }
 
     private var job: Job? = null
@@ -101,7 +132,7 @@ class MusicServiceConnection @Inject constructor(
                 val pos = mediaController?.currentPosition?.toFloat() ?: 0f
                 val dur = mediaController?.duration?.toFloat() ?: 1f
                 _progress.value = pos / dur
-                delay(1000L)
+                delay(1000L.milliseconds)
             }
         }
     }
@@ -127,6 +158,7 @@ class MusicServiceConnection @Inject constructor(
 
     fun addMediaItems(arr: ArrayList<MediaItem>) {
         mediaController?.addMediaItems(arr)
+        Log.d(this::class.simpleName, "media items added: ${arr.size}")
     }
 
     fun stopTracking() {

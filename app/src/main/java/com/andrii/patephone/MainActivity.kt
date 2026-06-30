@@ -306,7 +306,6 @@ fun Slider(onAction: (Float) -> Unit, progress: Float) {
     val displayValue = if (isDragging) dragValue else progress
 
     WavySlider3(
-        // OR WavySlider2. See the imports above that use "as ..."
         value = displayValue,
         onValueChange = {
             isDragging = true

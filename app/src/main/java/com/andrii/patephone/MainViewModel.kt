@@ -17,7 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -70,6 +69,7 @@ class MainViewModel @Inject constructor(
 
         viewModelScope.launch(Dispatchers.IO) {
             listAudioFiles(treeUri)
+//            musicServiceConnection.lazyEnrichment()
         }
     }
 
@@ -81,19 +81,22 @@ class MainViewModel @Inject constructor(
 
         try {
             val files = pickedDir?.listFiles() ?: return
-            val customArtwork = findFolderArtwork(files)
+
+            val customArtwork = if (PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean("artworkEnable", true)) {
+                findFolderArtwork(files)
+            } else null
+
             for (file in files){
                 if (file.isFile && (file.type?.startsWith("audio/") == true)) {
+                    val mediaID = file.uri.hashCode().toString()
                     val mediaItem = MediaItemBuilder(
                         context,
-                        retriever,
                         customArtwork,
-                        PreferenceManager.getDefaultSharedPreferences(context)
-                            .getBoolean("artworkEnable", true),
-                        file.uri.hashCode().toString()
-                    ).build(file)
+                        mediaID
+                    ).freshBuild(file)
                     list.add(mediaItem)
-                    playlist.add((mediaItem.mediaMetadata.title ?: "Unknown") as String)
+                    playlist.add((mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle ?: "Unknown") as String)
                 }
             }
         } catch (e: Exception) {
@@ -105,6 +108,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Main) {
             musicServiceConnection.addMediaItems(list)
         }
+
         _playlist.value = playlist.toTypedArray()
     }
 
