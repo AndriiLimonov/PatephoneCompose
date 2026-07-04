@@ -2,13 +2,14 @@ package com.andrii.patephone
 
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,11 +37,13 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOn
 import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.ShuffleOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -60,7 +63,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.andrii.patephone.action.PlayerAction
 import com.andrii.patephone.ui.theme.ApplicationTheme
-import com.andrii.patephone.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
 import androidx.compose.runtime.collectAsState
@@ -103,12 +105,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    val callbackBack = object : OnBackPressedCallback(true) {
-        override fun handleOnBackPressed() {
-            moveTaskToBack(true)
-        }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         musicServiceConnection.onDestroy()
@@ -141,9 +137,13 @@ fun MainPreview() {
                 verticalArrangement = Arrangement.SpaceBetween
             )
             {
-                ArtworkFrame(onActionImport = {}, null, "sdjfgklsjdfklgjsedlkfjgs;ldjfgsdfgj;olsj")
+                ArtworkFrame(onActionImport = {}, null, "some artist")
                 Slider({}, 0.5f)
-                ButtonRow({}, isPlaying = false, isShuffleEnabled = true, repeatMode = 0)
+                ButtonRow({},
+                    isPlaying = false,
+                    isShuffleEnabled = true,
+                    repeatMode = 0,
+                    {})
                 TitleFrame("Nothing") {}
             }
         }
@@ -155,6 +155,7 @@ fun MainPreview() {
 @Composable
 fun MainColumn(viewModel: MainViewModel = hiltViewModel()) {
     var showBottomSheet by remember { mutableStateOf(false) }
+    var showOptions by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
 
@@ -179,12 +180,15 @@ fun MainColumn(viewModel: MainViewModel = hiltViewModel()) {
             onAction = { action -> viewModel.onAction(action) },
             isPlaying = viewModel.isPlaying.collectAsState().value,
             isShuffleEnabled = viewModel.isShuffleEnabled.collectAsState().value,
-            repeatMode = viewModel.repeatMode.collectAsState().value
+            repeatMode = viewModel.repeatMode.collectAsState().value,
+            {showOptions = !showOptions}
         )
-        TitleFrame(viewModel.title.collectAsState().value, onClick = { showBottomSheet =
-            playlist.isNotEmpty()
+        TitleFrame(viewModel.title.collectAsState().value, onClick = {
+            showBottomSheet =
+                playlist.isNotEmpty()
         })
     }
+
     if (showBottomSheet) {
         ModalBottomSheet(
             onDismissRequest = { showBottomSheet = false },
@@ -198,6 +202,31 @@ fun MainColumn(viewModel: MainViewModel = hiltViewModel()) {
             )
         }
     }
+
+    if (showOptions) {
+        AnimatedVisibility(
+            visible = showOptions,
+            enter = slideInVertically(
+                initialOffsetY = { -it }
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { -it }
+            )
+        ) {
+            Box(Modifier.size(300.dp, 600.dp)) {
+                Column {
+                    Row(Modifier.clickable(true) { openSettings() }) {
+                        Icon(Icons.Default.Settings, null)
+                        Text("Settings")
+                    }
+                    Button({ showOptions = false }) { Text("Close") }
+                }
+            }
+        }
+    }
+}
+
+fun openSettings() {
 }
 
 @Composable
@@ -241,20 +270,25 @@ fun Playlist(
         modifier = Modifier.fillMaxWidth()
     ) {
         itemsIndexed(playlist) { index, song ->
-            Text(text = song,
+            Text(
+                text = song,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
-                .clickable{
-                onAction(index)
-            }
-                .then(
-                    if (index == currentSongIndex){
-                        Modifier
-                            .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(8.dp))
-                            .padding(8.dp, 0.dp)
-                    } else {
-                        Modifier
-                    })
+                    .clickable {
+                        onAction(index)
+                    }
+                    .then(
+                        if (index == currentSongIndex) {
+                            Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(8.dp, 0.dp)
+                        } else {
+                            Modifier
+                        }
+                    )
             )
             Spacer(Modifier.size(8.dp))
         }
@@ -275,7 +309,6 @@ fun ArtworkFrame(onActionImport: (Uri?) -> Unit, artworkUri: Uri?, artist: Strin
         contentAlignment = Alignment.Center
     )
     {
-        Log.d("debug", artworkUri.toString())
         SubcomposeAsyncImage(
             model = artworkUri,
             contentDescription = null,
@@ -352,7 +385,8 @@ fun ButtonRow(
     onAction: (PlayerAction) -> Unit,
     isPlaying: Boolean,
     isShuffleEnabled: Boolean,
-    repeatMode: Int
+    repeatMode: Int,
+    onSettingsButton: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -364,7 +398,20 @@ fun ButtonRow(
         )
     ) {
         // Shuffle, repeat buttons
-        Column(modifier = Modifier.size(64.dp, 72.dp)) {
+        Column(
+            modifier = Modifier
+                .size(64.dp, 128.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Bottom
+        ) {
+            // Here will be settings button in future
+//            IconButton({onSettingsButton()}) {
+//                Icon(
+//                    Icons.Default.Settings,
+//                    null,
+//                    tint = MaterialTheme.colorScheme.primary
+//                )
+//            }
             //Shuffle
             Button(
                 onClick = {
@@ -450,4 +497,3 @@ fun ButtonRow(
         }
     }
 }
-

@@ -82,10 +82,11 @@ class MainViewModel @Inject constructor(
         try {
             val files = pickedDir?.listFiles() ?: return
 
-            val customArtwork = if (PreferenceManager.getDefaultSharedPreferences(context)
-                .getBoolean("artworkEnable", true)) {
+            val customArtwork =
+                // if (PreferenceManager.getDefaultSharedPreferences(context)
+//                .getBoolean("artworkEnable", true)) {
                 findFolderArtwork(files)
-            } else null
+//            } else null
 
             for (file in files){
                 if (file.isFile && (file.type?.startsWith("audio/") == true)) {
@@ -119,13 +120,17 @@ class MainViewModel @Inject constructor(
                     name == "folder.jpg" || name == "album.jpg" || name == "artwork.jpg"
         }
 
-        if (standardCover != null) return standardCover.uri
+        if (standardCover != null) {
+            Log.d("FindFolderArtwork", "Found cover (standard name)")
+            return standardCover.uri
+        }
 
         val anyImage = files.firstOrNull { file ->
             val name = file.name?.lowercase() ?: ""
             name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png")
         }
 
+        Log.d("FindFolderArtwork", "Returning uri: $anyImage")
         return anyImage?.uri
     }
 

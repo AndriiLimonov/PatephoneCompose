@@ -4,12 +4,12 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Handler
-import android.os.HandlerThread
 import android.os.Looper
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
-import androidx.media3.common.Player
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -52,7 +52,14 @@ class UpdatedService : MediaSessionService() {
                     .build()
             )
             .build()
-        player.addListener(playerListener)
+
+        player.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .build(),
+            true
+        )
 
             // Session activity intent
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -67,7 +74,6 @@ class UpdatedService : MediaSessionService() {
         )
 
         mediaSession = MediaSession.Builder(this, player)
-            // явное указание activity
             .setSessionActivity(pendingIntent)
             .build()
 
@@ -75,24 +81,6 @@ class UpdatedService : MediaSessionService() {
 
         musicServiceConnection.startTracking()
     }
-
-    // This method starts intent for activity to update UI
-    // Activity updates UI if intent contains extra playerStateChanged = true
-    private val playerListener = object : Player.Listener {
-        override fun onEvents(player: Player, events: Player.Events) {
-            if (mediaSession == null) return
-            if (events.contains(Player.EVENT_IS_PLAYING_CHANGED) || events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-                val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                    putExtra("playerStateChanged", true)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
-                startActivity(intent)
-                Log.d("UpdatedService", "Player state changed")
-            }
-            super.onEvents(player, events)
-        }
-    }
-
 
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
@@ -114,7 +102,6 @@ class UpdatedService : MediaSessionService() {
             mediaSession?.let { session ->
                 val player = session.player
 
-                player.removeListener(playerListener)
                 player.playWhenReady = false
                 player.stop()
                 player.clearMediaItems()

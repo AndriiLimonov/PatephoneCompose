@@ -24,7 +24,7 @@ class MediaItemBuilder(
         context: Context,
         customArtwork: Uri?,
         mediaID: String
-    ) : this(context, null, customArtwork, true, mediaID)
+    ) : this(context, null, customArtwork, false, mediaID)
 
     // Secondary constructor for freshBuild() without artwork
     constructor(
