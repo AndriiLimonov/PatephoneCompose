@@ -288,7 +288,8 @@ fun Playlist(
                         } else {
                             Modifier
                         }
-                    )
+                    ),
+                color = if (index == currentSongIndex) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground
             )
             Spacer(Modifier.size(8.dp))
         }
