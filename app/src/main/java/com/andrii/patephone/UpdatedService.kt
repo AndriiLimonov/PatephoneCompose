@@ -10,10 +10,13 @@ import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.andrii.patephone.action.MusicServiceConnection
@@ -39,6 +42,7 @@ class UpdatedService : MediaSessionService() {
 
         val player = ExoPlayer.Builder(this, renderersFactory)
             // Buffering
+            // this parameters are made for .flac
             .setLoadControl(
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(
@@ -60,6 +64,15 @@ class UpdatedService : MediaSessionService() {
                 .build(),
             true
         )
+
+        player.addListener(object: Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                super.onMediaItemTransition(mediaItem, reason)
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && player.shuffleModeEnabled){
+                    player.shuffleOrder = ShuffleOrder.DefaultShuffleOrder(player.mediaItemCount)
+                }
+            }
+        })
 
             // Session activity intent
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -84,8 +97,7 @@ class UpdatedService : MediaSessionService() {
 
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Музыкальный плеер")
-            .setContentText("Воспроизведение")
+            .setContentTitle("Patephone~")
             .setOngoing(true)
             .build()
     }

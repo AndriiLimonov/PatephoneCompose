@@ -83,11 +83,7 @@ class MusicServiceConnection @Inject constructor(
                         lazyEnrichment()
                     }
 
-                    // Reset shuffle
-                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK){
-                        mediaController?.shuffleModeEnabled = false
-                        mediaController?.shuffleModeEnabled = true
-                    }
+
                     updateUI(mediaController?.currentMediaItem)
                 }
             })
