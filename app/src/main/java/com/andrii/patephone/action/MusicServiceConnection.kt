@@ -95,15 +95,17 @@ class MusicServiceConnection @Inject constructor(
         if (mediaItem == null || mediaController == null) return
         val currentIndex = mediaController!!.currentPeriodIndex
         val mediaID = mediaItem.mediaId
+        val retriever = MediaMetadataRetriever()
 
         val updatedMediaItem = MediaItemBuilder(
             context = context,
-            retriever = MediaMetadataRetriever(),
+            retriever = retriever,
             customArtwork = mediaItem.mediaMetadata.artworkUri,
             seekArtwork = true,
             mediaID = mediaID
         ).buildUpon(mediaItem)
 
+        retriever.release()
         mediaController!!.replaceMediaItem(currentIndex, updatedMediaItem)
     }
 
@@ -140,6 +142,7 @@ class MusicServiceConnection @Inject constructor(
     fun skipToNext() = mediaController?.seekToNext()
     fun skipToPrevious() = mediaController?.seekToPrevious()
     fun seekTo(position: Long) = mediaController?.seekTo(position)
+
     fun addMediaItem(mediaItem: MediaItem) {
         mediaController?.addMediaItem(mediaItem)
     }
@@ -149,6 +152,11 @@ class MusicServiceConnection @Inject constructor(
     }
 
     fun seekToMediaItem(index: Int) {
+        // We just toggle shuffle off and back if it was on to trigger onShuffleModeChanged listener placed in UpdatedService: 69
+        if (mediaController?.shuffleModeEnabled == true){
+            mediaController?.shuffleModeEnabled = false
+            mediaController?.shuffleModeEnabled = true
+        }
         mediaController?.seekTo(index, 0)
     }
 
@@ -159,6 +167,10 @@ class MusicServiceConnection @Inject constructor(
 
     fun stopTracking() {
         job?.cancel()
+    }
+
+    fun getCurrentMediaItem(): MediaItem? {
+        return mediaController?.currentMediaItem
     }
 
     fun onDestroy() {

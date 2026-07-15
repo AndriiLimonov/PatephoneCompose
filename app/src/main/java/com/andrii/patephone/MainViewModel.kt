@@ -1,18 +1,20 @@
 package com.andrii.patephone
 
 import android.content.Context
+import android.content.Intent
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
-import androidx.preference.PreferenceManager
 import com.andrii.patephone.action.MusicServiceConnection
 import com.andrii.patephone.action.PlayerAction
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,6 +61,28 @@ class MainViewModel @Inject constructor(
             is PlayerAction.SkipPrevious -> musicServiceConnection.skipToPrevious()
             is PlayerAction.ToggleShuffle -> musicServiceConnection.toggleShuffle()
             is PlayerAction.ToggleRepeat -> musicServiceConnection.toggleRepeat()
+            is PlayerAction.AddToFavs -> addToFavs(musicServiceConnection.getCurrentMediaItem())
+            else -> throw IllegalArgumentException("Unexpected action type")
+        }
+    }
+
+    fun addToFavs(mediaItem: MediaItem?) {
+        if (mediaItem == null) return
+        try {
+            val uri: Uri = mediaItem.localConfiguration!!.uri
+            val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            val resolver = context.contentResolver
+            resolver.takePersistableUriPermission(uri, takeFlags)
+            // Put file name as key and song uri
+            CoroutineScope(Dispatchers.IO).launch {
+                UriDiskCache(context).putUri(
+                    key = mediaItem.mediaMetadata.displayTitle as String? ?: DocumentFile.fromSingleUri(context, uri)?.name ?: "Unknown",
+                    uri = uri
+                )
+            }
+            Log.d("MainViewModel", "Successfully cached song as favourite")
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Song wasn't cached: ${e.cause}")
         }
     }
 

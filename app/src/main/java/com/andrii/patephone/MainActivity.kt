@@ -43,7 +43,6 @@ import androidx.compose.material.icons.filled.ShuffleOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -51,32 +50,32 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.andrii.patephone.action.PlayerAction
-import com.andrii.patephone.ui.theme.ApplicationTheme
-import dagger.hilt.android.AndroidEntryPoint
-import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import com.andrii.patephone.action.MusicServiceConnection
+import com.andrii.patephone.action.PlayerAction
+import com.andrii.patephone.ui.theme.ApplicationTheme
+import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
 
 
 @AndroidEntryPoint
@@ -139,11 +138,13 @@ fun MainPreview() {
             {
                 ArtworkFrame(onActionImport = {}, null, "some artist")
                 Slider({}, 0.5f)
-                ButtonRow({},
+                ButtonRow(
+                    {},
                     isPlaying = false,
                     isShuffleEnabled = true,
                     repeatMode = 0,
-                    {})
+                    false
+                )
                 TitleFrame("Nothing") {}
             }
         }
@@ -181,7 +182,7 @@ fun MainColumn(viewModel: MainViewModel = hiltViewModel()) {
             isPlaying = viewModel.isPlaying.collectAsState().value,
             isShuffleEnabled = viewModel.isShuffleEnabled.collectAsState().value,
             repeatMode = viewModel.repeatMode.collectAsState().value,
-            {showOptions = !showOptions}
+            false
         )
         TitleFrame(viewModel.title.collectAsState().value, onClick = {
             showBottomSheet =
@@ -387,7 +388,7 @@ fun ButtonRow(
     isPlaying: Boolean,
     isShuffleEnabled: Boolean,
     repeatMode: Int,
-    onSettingsButton: () -> Unit
+    isInFavorites: Boolean
 ) {
     Row(
         modifier = Modifier
@@ -398,17 +399,16 @@ fun ButtonRow(
             alignment = Alignment.CenterHorizontally
         )
     ) {
-        // Shuffle, repeat buttons
+        // Shuffle, repeat and favourites buttons
         Column(
             modifier = Modifier
                 .size(64.dp, 128.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom
         ) {
-            // Here will be settings button in future
-//            IconButton({onSettingsButton()}) {
+//            IconButton({ onAction(PlayerAction.AddToFavs) }) {
 //                Icon(
-//                    Icons.Default.Settings,
+//                    if (isInFavorites) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
 //                    null,
 //                    tint = MaterialTheme.colorScheme.primary
 //                )
