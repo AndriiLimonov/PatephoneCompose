@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Bundle
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
@@ -19,6 +20,7 @@ class MediaItemBuilder(
     val seekArtwork: Boolean,
     val mediaID: String
 ) {
+    val className = "MediaItemBuilder"
     // Secondary constructor for freshBuild()
     constructor(
         context: Context,
@@ -83,11 +85,10 @@ class MediaItemBuilder(
         val cacheDir = context.cacheDir
         val artworkFile = File(cacheDir, "artwork_$mediaID.jpg")
 
-        if (artworkFile.exists()) {
-            return Uri.fromFile(artworkFile)
+        if (!seekArtwork){
+            Log.d(className, "seekArtwork = false")
+            return null
         }
-
-        if (!seekArtwork) return null
         return try {
             val embeddedPicture = retriever.embeddedPicture
             if (embeddedPicture != null) {
@@ -98,9 +99,11 @@ class MediaItemBuilder(
                 bitmap.recycle()
                 Uri.fromFile(artworkFile)
             } else {
+                Log.d(className, "retriever returned null embedded picture")
                 null
             }
         } catch (_: Exception) {
+            Log.d(className, "Something went wrong caching uri")
             null
         }
     }
@@ -108,15 +111,15 @@ class MediaItemBuilder(
     fun buildUpon(mediaItem: MediaItem): MediaItem {
         if (retriever == null) throw NullPointerException("Do not use buildUpon() if retriever == null")
         return try {
-            Log.d("MediaItemBuilder", "buildUpon started")
+            Log.d(className, "buildUpon started")
             retriever.setDataSource(context, mediaItem.localConfiguration?.uri)
-            Log.d("MediaItemBuilder", "uri found")
+            Log.d(className, "uri found")
 
             val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
             val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
             val artwork = tryToCacheArtwork()
 
-            Log.d("MediaItemBuilder", "$title, $artwork, $artist")
+            Log.d(className, "$title, $artwork, $artist")
             mediaItem.buildUpon()
                 .setMediaMetadata(
                     mediaItem.mediaMetadata.buildUpon()
@@ -128,10 +131,10 @@ class MediaItemBuilder(
                 .build()
         } catch (e: Exception) {
             e.printStackTrace()
-            Log.d("MediaItemBuilder", "Got exception: $e, applying current mediaItem")
+            Log.d(className, "Got exception: $e, applying current mediaItem")
             mediaItem
         } finally {
-            Log.d("MediaItemBuilder", "built successfully")
+            Log.d(className, "built successfully")
         }
     }
 }

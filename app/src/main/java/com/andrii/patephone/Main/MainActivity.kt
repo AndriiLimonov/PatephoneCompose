@@ -1,5 +1,7 @@
-package com.andrii.patephone
+package com.andrii.patephone.Main
 
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -7,9 +9,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -64,41 +63,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.Player
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
+import com.andrii.patephone.Settings.SettingsActivity
 import com.andrii.patephone.action.MusicServiceConnection
 import com.andrii.patephone.action.PlayerAction
 import com.andrii.patephone.ui.theme.ApplicationTheme
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
 
 
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    @Inject
-    lateinit var musicServiceConnection: MusicServiceConnection
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             ApplicationTheme {
-                Scaffold(
-                    modifier = Modifier
-                        .fillMaxSize()
-                ) { innerPadding ->
-                    Surface(
-                        Modifier
-                            .padding(innerPadding)
-                    ) {
-                        MainColumn()
-                    }
+                Scaffold { innerPadding ->
+                    MainContent(
+                        Modifier.padding(innerPadding),
+                        this,
+                        {openSettings(this)}
+                    )
                 }
             }
         }
@@ -106,17 +95,23 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        musicServiceConnection.onDestroy()
+        MusicServiceConnection.onDestroy()
     }
 
     override fun onPause() {
         super.onPause()
-        musicServiceConnection.stopTracking()
+        MusicServiceConnection.stopTracking()
     }
 
     override fun onResume() {
         super.onResume()
-        musicServiceConnection.startTracking()
+        MusicServiceConnection.lazyEnrichment(this.applicationContext)
+        MusicServiceConnection.startTracking()
+    }
+
+    fun openSettings(context: Context) {
+        val intent = Intent(context, SettingsActivity::class.java)
+        startActivity(intent)
     }
 }
 
@@ -142,8 +137,7 @@ fun MainPreview() {
                     {},
                     isPlaying = false,
                     isShuffleEnabled = true,
-                    repeatMode = 0,
-                    false
+                    repeatMode = 0
                 )
                 TitleFrame("Nothing") {}
             }
@@ -154,14 +148,21 @@ fun MainPreview() {
 @OptIn(ExperimentalMaterial3Api::class)
 
 @Composable
-fun MainColumn(viewModel: MainViewModel = hiltViewModel()) {
+fun MainContent(
+    modifier: Modifier,
+    context: Context,
+    onSettingsPressed: () -> Unit,
+    viewModel: MainViewModel = viewModel()
+) {
     var showBottomSheet by remember { mutableStateOf(false) }
-    var showOptions by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
 
+    val song = viewModel.song.collectAsState().value
+    val playerState = viewModel.playerState.collectAsState().value
+
     Column(
-        modifier = Modifier
+        modifier = modifier
             .padding(32.dp, 72.dp, 32.dp, 72.dp)
             .fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -169,22 +170,21 @@ fun MainColumn(viewModel: MainViewModel = hiltViewModel()) {
     )
     {
         ArtworkFrame(
-            onActionImport = { uri -> viewModel.onActionImport(uri) },
-            viewModel.artworkUri.collectAsState().value,
-            viewModel.artist.collectAsState().value
+            onActionImport = { uri -> viewModel.onActionImport(uri, context.applicationContext) },
+            song.artworkUri,
+            song.artist
         )
         Slider(
             onAction = { float -> viewModel.onSliderMove(float) },
-            progress = viewModel.progress.collectAsState().value
+            progress = playerState.progress
         )
         ButtonRow(
             onAction = { action -> viewModel.onAction(action) },
-            isPlaying = viewModel.isPlaying.collectAsState().value,
-            isShuffleEnabled = viewModel.isShuffleEnabled.collectAsState().value,
-            repeatMode = viewModel.repeatMode.collectAsState().value,
-            false
+            isPlaying = playerState.isPlaying,
+            isShuffleEnabled = playerState.isShuffleEnabled,
+            repeatMode = playerState.repeatMode
         )
-        TitleFrame(viewModel.title.collectAsState().value, onClick = {
+        TitleFrame(song.title, onClick = {
             showBottomSheet =
                 playlist.isNotEmpty()
         })
@@ -195,15 +195,24 @@ fun MainColumn(viewModel: MainViewModel = hiltViewModel()) {
             onDismissRequest = { showBottomSheet = false },
             sheetState = sheetState
         ) {
-            Playlist(
-                playlist,
-                { index ->
-                    viewModel.seekToMedia(index)
-                }, viewModel.currentSongIndex.collectAsState().value
-            )
+            Column {
+                Row(Modifier.fillMaxWidth().height(90.dp), horizontalArrangement = Arrangement.Center) {
+                    Button(onClick = { onSettingsPressed() }) {
+                        Icon(Icons.Default.Settings, null)
+                    }
+                }
+                Playlist(
+                    playlist,
+                    { index ->
+                        viewModel.seekToMedia(index)
+                    }, playerState.currentSongIndex
+                )
+            }
         }
     }
 
+
+    /*
     if (showOptions) {
         AnimatedVisibility(
             visible = showOptions,
@@ -225,10 +234,9 @@ fun MainColumn(viewModel: MainViewModel = hiltViewModel()) {
             }
         }
     }
+     */
 }
 
-fun openSettings() {
-}
 
 @Composable
 fun TextUnderArtwork(onActionImport: (Uri?) -> Unit, artist: String) {
@@ -387,8 +395,7 @@ fun ButtonRow(
     onAction: (PlayerAction) -> Unit,
     isPlaying: Boolean,
     isShuffleEnabled: Boolean,
-    repeatMode: Int,
-    isInFavorites: Boolean
+    repeatMode: Int
 ) {
     Row(
         modifier = Modifier

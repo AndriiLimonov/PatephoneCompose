@@ -1,8 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp")
-    id("com.google.dagger.hilt.android")
 }
 
 android {
@@ -43,13 +41,11 @@ android {
 
 dependencies {
     implementation(libs.coil.compose)
-    implementation( libs.hilt.android.v2571)
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.preference)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.material)
-    ksp (libs.hilt.compiler.v2571)
-    implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation("ir.mahozad.multiplatform:wavy-slider:2.2.0")
     implementation(libs.androidx.core.ktx)
@@ -67,9 +63,5 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    implementation(libs.androidx.datastore.preferences)
 }

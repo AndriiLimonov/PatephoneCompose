@@ -8,6 +8,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import androidx.core.net.toUri
+import com.andrii.patephone.Settings.dataStore
 import kotlinx.coroutines.flow.first
 
 private val Context.dataStore by preferencesDataStore(name = "uri_cache")

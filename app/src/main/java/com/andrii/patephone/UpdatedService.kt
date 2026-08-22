@@ -17,14 +17,12 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.andrii.patephone.Main.MainActivity
+import com.andrii.patephone.Main.NOTIFICATION_CHANNEL_ID
 import com.andrii.patephone.action.MusicServiceConnection
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 
-@AndroidEntryPoint
 class UpdatedService : MediaSessionService() {
-    @Inject
-    lateinit var musicServiceConnection: MusicServiceConnection
+    val className = "Updated service"
     private var mediaSession: MediaSession? = null
 
     @OptIn(UnstableApi::class)
@@ -40,7 +38,7 @@ class UpdatedService : MediaSessionService() {
 
         val player = ExoPlayer.Builder(this, renderersFactory)
             // Buffering
-            // this parameters are made for .flac
+            // these parameters are made for .flac
             .setLoadControl(
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(
@@ -90,9 +88,9 @@ class UpdatedService : MediaSessionService() {
             .setSessionActivity(pendingIntent)
             .build()
 
-        Log.d("UpdatedService", "Service started")
+        Log.d(className, "Service started")
 
-        musicServiceConnection.startTracking()
+        MusicServiceConnection.startTracking()
     }
 
     private fun createNotification(): Notification {
@@ -104,12 +102,12 @@ class UpdatedService : MediaSessionService() {
 
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
-        Log.d("UpdatedService", "onGetSession called, returning: ${mediaSession != null}")
+        Log.d(className, "onGetSession called, returning: ${mediaSession != null}")
         return mediaSession
     }
 
     override fun onDestroy() {
-        Log.d("UpdatedService", "Starting secure onDestroy...")
+        Log.d(className, "Starting secure onDestroy...")
         try {
             mediaSession?.let { session ->
                 val player = session.player
@@ -122,18 +120,18 @@ class UpdatedService : MediaSessionService() {
 
                 Handler(Looper.getMainLooper()).post {
                     player.release()
-                    Log.d("UpdatedService", "Player resources async released")
+                    Log.d(className, "Player resources async released")
                 }
             }
             mediaSession = null
 
-            musicServiceConnection.onDestroy()
+            MusicServiceConnection.onDestroy()
 
         } catch (e: Exception) {
-            Log.e("UpdatedService", "Error during onDestroy: ${e.message}", e)
+            Log.e(className, "Error during onDestroy: ${e.message}", e)
         }
 
-        Log.d("UpdatedService", "Service completely destroyed")
+        Log.d(className, "Service completely destroyed")
         super.onDestroy()
     }
 
@@ -142,7 +140,7 @@ class UpdatedService : MediaSessionService() {
         Log.d("Updated Service", "Closing...")
         mediaSession?.player?.stop()
 
-        musicServiceConnection.stopTracking()
+        MusicServiceConnection.stopTracking()
         super.onTaskRemoved(rootIntent)
         stopSelf()
 

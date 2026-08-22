@@ -7,14 +7,18 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.andrii.patephone.MediaItemBuilder
+import com.andrii.patephone.PlayerState
+import com.andrii.patephone.Settings.SettingsManager
+import com.andrii.patephone.Song
 import com.andrii.patephone.UpdatedService
 import com.google.common.util.concurrent.MoreExecutors
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,34 +27,26 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import javax.inject.Inject
+import kotlinx.coroutines.runBlocking
+import okhttp3.internal.wait
 import kotlin.time.Duration.Companion.milliseconds
 
-class MusicServiceConnection @Inject constructor(
-    @param:ApplicationContext private val context: Context
-) {
-    private val _progress = MutableStateFlow(0f)
-    private val _isPlaying = MutableStateFlow(false)
-    private val _isShuffleEnabled = MutableStateFlow(false)
-    private val _artist = MutableStateFlow("Artist")
-    private val _title = MutableStateFlow("Absolutely nothing")
-    private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
-    private val _currentSongIndex = MutableStateFlow(0)
-    private val _artworkUri = MutableStateFlow<Uri?>(null)
-    val artworkUri = _artworkUri.asStateFlow()
-    val currentSongIndex = _currentSongIndex.asStateFlow()
-    val repeatMode = _repeatMode.asStateFlow()
-    val title = _title.asStateFlow()
-    val artist = _artist.asStateFlow()
-    val progress = _progress.asStateFlow()
-    val isPlaying = _isPlaying.asStateFlow()
-    val isShuffleEnabled = _isShuffleEnabled.asStateFlow()
+object MusicServiceConnection {
+    var customArtwork: Uri? = null
+    private val _song = MutableStateFlow(Song())
+    private val _playerState = MutableStateFlow(
+        PlayerState(
+            currentSongIndex = 0
+        )
+    )
+    val song = _song.asStateFlow()
+    val playerState = _playerState.asStateFlow()
 
     private var mediaController: MediaController? = null
 
-    private fun startService() {
+    private fun startService(context: Context) {
         val intent = Intent(context, UpdatedService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent)
@@ -59,19 +55,29 @@ class MusicServiceConnection @Inject constructor(
         }
     }
 
-    init {
-        startService()
+    suspend private fun getUseMetadataArtwork(context: Context): Boolean {
+        val property =
+            SettingsManager(context).useMetadataArtwork.first()
+        return property.also { Log.d("MusicServiceConnection", "UseMetadataArtwork = $it") }
+    }
 
-        val sessionToken = SessionToken(context, ComponentName(context, UpdatedService::class.java))
-        val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
+    fun init(context: Context) {
+        val appContext = context.applicationContext
+        startService(appContext)
+
+        val sessionToken =
+            SessionToken(appContext, ComponentName(appContext, UpdatedService::class.java))
+        val controllerFuture = MediaController.Builder(appContext, sessionToken).buildAsync()
 
         controllerFuture.addListener({
             mediaController = controllerFuture.get()
             // Listener
             mediaController?.addListener(object : Player.Listener {
                 override fun onEvents(player: Player, events: Player.Events) {
-                    _isPlaying.value = player.isPlaying
-                    _isShuffleEnabled.value = player.shuffleModeEnabled
+                    _playerState.value = _playerState.value.copy(
+                        isPlaying = player.isPlaying,
+                        isShuffleEnabled = player.shuffleModeEnabled
+                    )
                     super.onEvents(player, events)
                 }
 
@@ -80,7 +86,7 @@ class MusicServiceConnection @Inject constructor(
                     Log.d("MusicServiceConnection", "Media item transition")
 
                     if (mediaItem?.mediaMetadata?.title == null) {
-                        lazyEnrichment()
+                        lazyEnrichment(appContext)
                     }
 
 
@@ -90,7 +96,8 @@ class MusicServiceConnection @Inject constructor(
         }, MoreExecutors.directExecutor())
     }
 
-    fun lazyEnrichment() {
+    fun lazyEnrichment(context: Context) {
+        val appContext = context.applicationContext
         val mediaItem = mediaController?.currentMediaItem
         if (mediaItem == null || mediaController == null) return
         val currentIndex = mediaController!!.currentPeriodIndex
@@ -98,10 +105,10 @@ class MusicServiceConnection @Inject constructor(
         val retriever = MediaMetadataRetriever()
 
         val updatedMediaItem = MediaItemBuilder(
-            context = context,
+            context = appContext,
             retriever = retriever,
-            customArtwork = mediaItem.mediaMetadata.artworkUri,
-            seekArtwork = true,
+            customArtwork = customArtwork,
+            seekArtwork = runBlocking { getUseMetadataArtwork(appContext) },
             mediaID = mediaID
         ).buildUpon(mediaItem)
 
@@ -110,6 +117,20 @@ class MusicServiceConnection @Inject constructor(
     }
 
     private fun updateUI(mediaItem: MediaItem?) {
+        _song.value = Song(
+            title = mediaItem?.mediaMetadata?.title?.toString() ?: "Untitled",
+            artist = mediaItem?.mediaMetadata?.artist?.toString() ?: "Unknown",
+            artworkUri = mediaItem?.mediaMetadata?.artworkUri
+        )
+        val oldState = _playerState.value
+        _playerState.value = PlayerState(
+            progress = oldState.progress,
+            isPlaying = oldState.isPlaying,
+            isShuffleEnabled = oldState.isShuffleEnabled,
+            repeatMode = oldState.repeatMode,
+            currentSongIndex = mediaController?.currentMediaItemIndex ?: 0
+        )
+        /*
         _title.value =
             mediaItem?.mediaMetadata?.title?.toString() ?: "Untitled"
         _artist.value =
@@ -118,6 +139,7 @@ class MusicServiceConnection @Inject constructor(
             mediaItem?.mediaMetadata?.artworkUri
         _currentSongIndex.value =
             mediaController?.currentMediaItemIndex ?: 0
+         */
     }
 
     private var job: Job? = null
@@ -129,14 +151,13 @@ class MusicServiceConnection @Inject constructor(
             while (true) {
                 val pos = mediaController?.currentPosition?.toFloat() ?: 0f
                 val dur = mediaController?.duration?.toFloat() ?: 1f
-                _progress.value = pos / dur
+                _playerState.value = _playerState.value.copy(progress = pos / dur)
                 delay(1000L.milliseconds)
             }
         }
     }
 
     fun play() = mediaController?.play()
-
     fun pause() = mediaController?.pause()
     fun stop() = mediaController?.stop()
     fun skipToNext() = mediaController?.seekToNext()
@@ -153,7 +174,7 @@ class MusicServiceConnection @Inject constructor(
 
     fun seekToMediaItem(index: Int) {
         // We just toggle shuffle off and back if it was on to trigger onShuffleModeChanged listener placed in UpdatedService: 69
-        if (mediaController?.shuffleModeEnabled == true){
+        if (mediaController?.shuffleModeEnabled == true) {
             mediaController?.shuffleModeEnabled = false
             mediaController?.shuffleModeEnabled = true
         }
@@ -178,43 +199,45 @@ class MusicServiceConnection @Inject constructor(
         scope.cancel()
         returnToDefaults()
 
-
         mediaController?.release()
         mediaController = null
         Log.d("MusicServiceConnection", "Singleton manager destroyed")
     }
 
     private fun returnToDefaults() {
-        _progress.value = 0f
-        _isPlaying.value = false
-        _title.value = "Absolutely nothing"
-        _artist.value = "Artist"
+        _playerState.value = PlayerState(
+            currentSongIndex = 0
+        )
     }
 
-    suspend fun clearArtworkCache() = withContext(Dispatchers.IO) {
-        Log.d("MusicServiceConnection", "Clearing cached artworks...")
-        try {
-            val cacheDir = context.cacheDir
-            val artworkFiles = cacheDir.listFiles { _, name ->
-                name.startsWith("artwork_") && name.endsWith(".jpg")
-            }
+    /* suspend */ fun clearArtworkCache(): Nothing = TODO()
 
-            artworkFiles?.forEach { file ->
-                if (file.exists()) {
-                    file.delete()
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+    /*
+withContext(Dispatchers.IO) {
+
+    Log.d("MusicServiceConnection", "Clearing cached artworks...")
+    try {
+        val cacheDir = context.cacheDir
+        val artworkFiles = cacheDir.listFiles { _, name ->
+            name.startsWith("artwork_") && name.endsWith(".jpg")
         }
-        Log.d("MusicServiceConnection", "Artworks cleaned!")
-    }
 
+        artworkFiles?.forEach { file ->
+            if (file.exists()) {
+                file.delete()
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    Log.d("MusicServiceConnection", "Artworks cleaned!")
+}
+*/
     fun getDuration() = mediaController?.duration ?: 0
     fun toggleShuffle() {
-        val mode = isShuffleEnabled.value
+        val mode = playerState.value.isShuffleEnabled
         mediaController?.shuffleModeEnabled = !mode
-        _isShuffleEnabled.value = !mode
+        _playerState.value = _playerState.value.copy(isShuffleEnabled = !mode)
     }
 
     fun toggleRepeat() {
@@ -224,7 +247,8 @@ class MusicServiceConnection @Inject constructor(
             Player.REPEAT_MODE_ONE -> mediaController?.repeatMode = Player.REPEAT_MODE_OFF
             else -> mediaController?.repeatMode = Player.REPEAT_MODE_ALL
         }
-        _repeatMode.value = mediaController!!.repeatMode
+        _playerState.value =
+            _playerState.value.copy(repeatMode = mediaController!!.repeatMode)
     }
 
     fun clearMediaItems() = mediaController?.clearMediaItems()

@@ -1,55 +1,37 @@
-package com.andrii.patephone
+package com.andrii.patephone.Main
 
 import android.content.Context
-import android.content.Intent
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.os.Build
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
+import com.andrii.patephone.MediaItemBuilder
 import com.andrii.patephone.action.MusicServiceConnection
 import com.andrii.patephone.action.PlayerAction
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class MainViewModel @Inject constructor(
-    private val musicServiceConnection: MusicServiceConnection,
-    @param:ApplicationContext private val context: Context
+class MainViewModel(
 ) : ViewModel() {
-    private val _imageUri = MutableStateFlow<Uri?>(null)
-
+    val className = "MainViewModel"
     private val _playlist = MutableStateFlow(emptyArray<String>())
 
     val playlist = _playlist.asStateFlow()
-
-    val artworkUri = musicServiceConnection.artworkUri
-    val progress = musicServiceConnection.progress
-    val isShuffleEnabled = musicServiceConnection.isShuffleEnabled
-    val repeatMode = musicServiceConnection.repeatMode
-
-    val isPlaying = musicServiceConnection.isPlaying
-    val artist = musicServiceConnection.artist
-    val title = musicServiceConnection.title
-    val currentSongIndex = musicServiceConnection.currentSongIndex
-
+    val playerState = MusicServiceConnection.playerState
+    val song = MusicServiceConnection.song
 
     fun togglePlay() {
-        if (isPlaying.value) {
-            musicServiceConnection.pause()
-            musicServiceConnection.stopTracking()
+        if (playerState.value.isPlaying) {
+            MusicServiceConnection.pause()
+            MusicServiceConnection.stopTracking()
         } else {
-            musicServiceConnection.play()
-            musicServiceConnection.startTracking()
+            MusicServiceConnection.play()
+            MusicServiceConnection.startTracking()
         }
         Log.d(TAG_VIEW_MODEL, "Toggle play pressed")
     }
@@ -57,17 +39,18 @@ class MainViewModel @Inject constructor(
     fun onAction(action: PlayerAction) {
         when (action) {
             is PlayerAction.PlayPause -> togglePlay()
-            is PlayerAction.SkipNext -> musicServiceConnection.skipToNext()
-            is PlayerAction.SkipPrevious -> musicServiceConnection.skipToPrevious()
-            is PlayerAction.ToggleShuffle -> musicServiceConnection.toggleShuffle()
-            is PlayerAction.ToggleRepeat -> musicServiceConnection.toggleRepeat()
-            is PlayerAction.AddToFavs -> addToFavs(musicServiceConnection.getCurrentMediaItem())
+            is PlayerAction.SkipNext -> MusicServiceConnection.skipToNext()
+            is PlayerAction.SkipPrevious -> MusicServiceConnection.skipToPrevious()
+            is PlayerAction.ToggleShuffle -> MusicServiceConnection.toggleShuffle()
+            is PlayerAction.ToggleRepeat -> MusicServiceConnection.toggleRepeat()
+            is PlayerAction.AddToFavs -> addToFavs(MusicServiceConnection.getCurrentMediaItem())
             else -> throw IllegalArgumentException("Unexpected action type")
         }
     }
 
     fun addToFavs(mediaItem: MediaItem?) {
-        if (mediaItem == null) return
+        TODO("Not yet implemented")
+        /* if (mediaItem == null) return
         try {
             val uri: Uri = mediaItem.localConfiguration!!.uri
             val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
@@ -80,24 +63,25 @@ class MainViewModel @Inject constructor(
                     uri = uri
                 )
             }
-            Log.d("MainViewModel", "Successfully cached song as favourite")
+            Log.d(CLASSNAME, "Successfully cached song as favourite")
         } catch (e: Exception) {
-            Log.e("MainViewModel", "Song wasn't cached: ${e.cause}")
+            Log.e(CLASSNAME, "Song wasn't cached: ${e.cause}")
         }
+         */
     }
 
-    fun onActionImport(treeUri: Uri?) {
+    fun onActionImport(treeUri: Uri?, context: Context) {
         if (treeUri == null) return
-        musicServiceConnection.stop()
-        musicServiceConnection.clearMediaItems()
+        MusicServiceConnection.stop()
+        MusicServiceConnection.clearMediaItems()
 
         viewModelScope.launch(Dispatchers.IO) {
-            listAudioFiles(treeUri)
-//            musicServiceConnection.lazyEnrichment()
+            listAudioFiles(treeUri, context)
+//            MusicServiceConnection.lazyEnrichment()
         }
     }
 
-    fun listAudioFiles(treeUri: Uri) {
+    fun listAudioFiles(treeUri: Uri, context: Context) {
         val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
         val retriever = MediaMetadataRetriever()
         val list = ArrayList<MediaItem>()
@@ -106,32 +90,34 @@ class MainViewModel @Inject constructor(
         try {
             val files = pickedDir?.listFiles() ?: return
 
-            val customArtwork =
-                // if (PreferenceManager.getDefaultSharedPreferences(context)
-//                .getBoolean("artworkEnable", true)) {
+//            val customArtwork =
+            MusicServiceConnection.customArtwork =
                 findFolderArtwork(files)
-//            } else null
 
-            for (file in files){
+            for (file in files) {
                 if (file.isFile && (file.type?.startsWith("audio/") == true)) {
                     val mediaID = file.uri.hashCode().toString()
                     val mediaItem = MediaItemBuilder(
                         context,
-                        customArtwork,
+                        MusicServiceConnection.customArtwork,
                         mediaID
                     ).freshBuild(file)
                     list.add(mediaItem)
-                    playlist.add((mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle ?: "Unknown") as String)
+                    playlist.add(
+                        (mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle
+                        ?: "Unknown") as String
+                    )
                 }
             }
         } catch (e: Exception) {
-            Log.e("MainViewModel", "Something went wrong by import: ${e.printStackTrace()}")
+            Log.e(className, "Something went wrong by import: ${e.printStackTrace()}")
         } finally {
             retriever.release()
         }
 
+
         viewModelScope.launch(Dispatchers.Main) {
-            musicServiceConnection.addMediaItems(list)
+            MusicServiceConnection.addMediaItems(list)
         }
 
         _playlist.value = playlist.toTypedArray()
@@ -159,17 +145,18 @@ class MainViewModel @Inject constructor(
     }
 
     fun onSliderMove(float: Float) {
-        val duration = musicServiceConnection.getDuration()
-        musicServiceConnection.seekTo((duration * float).toLong())
+        val duration = MusicServiceConnection.getDuration()
+        MusicServiceConnection.seekTo((duration * float).toLong())
     }
 
     override fun onCleared() {
         _playlist.value = emptyArray<String>()
-        musicServiceConnection.stopTracking()
+        MusicServiceConnection.stopTracking()
         super.onCleared()
     }
 
     fun seekToMedia(index: Int) {
-        musicServiceConnection.seekToMediaItem(index)
+        MusicServiceConnection.seekToMediaItem(index)
     }
+
 }
