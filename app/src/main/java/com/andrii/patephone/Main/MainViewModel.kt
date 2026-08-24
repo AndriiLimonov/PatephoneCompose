@@ -95,7 +95,11 @@ class MainViewModel(
                 findFolderArtwork(files)
 
             for (file in files) {
-                if (file.isFile && (file.type?.startsWith("audio/") == true)) {
+                if (file.isFile && (file.type?.startsWith("audio/") == true) && (file.name?.substringAfterLast(
+                        ".",
+                        ""
+                    ) !in MusicServiceConnection.UNSUPPORTED_TYPES)
+                ) {
                     val mediaID = file.uri.hashCode().toString()
                     val mediaItem = MediaItemBuilder(
                         context,

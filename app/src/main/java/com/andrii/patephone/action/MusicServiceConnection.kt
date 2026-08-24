@@ -7,8 +7,6 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.util.Log
-import androidx.compose.runtime.collectAsState
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -30,10 +28,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import okhttp3.internal.wait
 import kotlin.time.Duration.Companion.milliseconds
 
 object MusicServiceConnection {
+    val UNSUPPORTED_TYPES = arrayOf("m3u")
     var customArtwork: Uri? = null
     private val _song = MutableStateFlow(Song())
     private val _playerState = MutableStateFlow(

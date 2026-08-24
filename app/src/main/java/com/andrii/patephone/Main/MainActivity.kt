@@ -58,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -323,15 +324,20 @@ fun ArtworkFrame(onActionImport: (Uri?) -> Unit, artworkUri: Uri?, artist: Strin
             model = artworkUri,
             contentDescription = null,
             modifier = Modifier
-                .clip(RoundedCornerShape(32.dp))
+                .fillMaxSize()
+                .clip(RoundedCornerShape(32.dp)),
+            contentScale = ContentScale.Fit
         ) {
             val state = painter.state
             if (state is AsyncImagePainter.State.Loading || state is AsyncImagePainter.State.Error) {
-                Icon(
-                    imageVector = Icons.Default.BrokenImage,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.background
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.BrokenImage,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
             } else {
                 SubcomposeAsyncImageContent()
             }
