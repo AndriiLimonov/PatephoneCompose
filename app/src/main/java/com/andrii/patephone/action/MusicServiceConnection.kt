@@ -13,9 +13,10 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.andrii.patephone.MediaItemBuilder
 import com.andrii.patephone.PlayerState
-import com.andrii.patephone.Settings.SettingsManager
+import com.andrii.patephone.settings.SettingsManager
 import com.andrii.patephone.Song
-import com.andrii.patephone.UpdatedService
+import com.andrii.patephone.main.UpdatedService
+import com.andrii.patephone.settings.NotificationHeader
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,7 +54,13 @@ object MusicServiceConnection {
         }
     }
 
-    suspend private fun getUseMetadataArtwork(context: Context): Boolean {
+    private suspend fun getNotificationHeader(context: Context): NotificationHeader {
+        val property =
+            SettingsManager(context).notificationHeader.first()
+        return property.also { Log.d("MusicServiceConnection", "UseMetadataArtwork = $it") }
+    }
+
+    private suspend fun getUseMetadataArtwork(context: Context): Boolean {
         val property =
             SettingsManager(context).useMetadataArtwork.first()
         return property.also { Log.d("MusicServiceConnection", "UseMetadataArtwork = $it") }
@@ -107,12 +114,14 @@ object MusicServiceConnection {
             retriever = retriever,
             customArtwork = customArtwork,
             seekArtwork = runBlocking { getUseMetadataArtwork(appContext) },
-            mediaID = mediaID
+            mediaID = mediaID,
+            notificationHeader = runBlocking { getNotificationHeader(appContext) }
         ).buildUpon(mediaItem)
 
         retriever.release()
         mediaController!!.replaceMediaItem(currentIndex, updatedMediaItem)
     }
+
 
     private fun updateUI(mediaItem: MediaItem?) {
         _song.value = Song(

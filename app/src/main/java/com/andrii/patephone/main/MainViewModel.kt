@@ -1,4 +1,4 @@
-package com.andrii.patephone.Main
+package com.andrii.patephone.main
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
@@ -9,12 +9,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import com.andrii.patephone.MediaItemBuilder
+import com.andrii.patephone.PlayerState
+import com.andrii.patephone.Song
 import com.andrii.patephone.action.MusicServiceConnection
 import com.andrii.patephone.action.PlayerAction
+import com.andrii.patephone.settings.SettingsManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class MainViewModel(
 ) : ViewModel() {
@@ -22,8 +29,18 @@ class MainViewModel(
     private val _playlist = MutableStateFlow(emptyArray<String>())
 
     val playlist = _playlist.asStateFlow()
-    val playerState = MusicServiceConnection.playerState
-    val song = MusicServiceConnection.song
+    val playerState = MusicServiceConnection.playerState.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = PlayerState(
+            currentSongIndex = 0
+        )
+    )
+    val song = MusicServiceConnection.song.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = Song()
+    )
 
     fun togglePlay() {
         if (playerState.value.isPlaying) {
@@ -82,6 +99,7 @@ class MainViewModel(
     }
 
     fun listAudioFiles(treeUri: Uri, context: Context) {
+        val recursiveImport: Boolean = runBlocking { SettingsManager(context).recursiveImport.first() }
         val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
         val retriever = MediaMetadataRetriever()
         val list = ArrayList<MediaItem>()
@@ -111,6 +129,8 @@ class MainViewModel(
                         (mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle
                         ?: "Unknown") as String
                     )
+                } else if (file.isDirectory && recursiveImport) {
+
                 }
             }
         } catch (e: Exception) {

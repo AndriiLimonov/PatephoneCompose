@@ -5,11 +5,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.os.Bundle
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import com.andrii.patephone.settings.NotificationHeader
 import java.io.File
 import java.io.FileOutputStream
 
@@ -17,10 +17,12 @@ class MediaItemBuilder(
     val context: Context,
     val retriever: MediaMetadataRetriever?,
     val customArtwork: Uri?,
-    val seekArtwork: Boolean,
-    val mediaID: String
+    val seekArtwork: Boolean = false,
+    val mediaID: String,
+    val notificationHeader: NotificationHeader = NotificationHeader.SongTitle
 ) {
-    val className = "MediaItemBuilder"
+    val className: String = this::class.java.simpleName
+
     // Secondary constructor for freshBuild()
     constructor(
         context: Context,
@@ -32,7 +34,7 @@ class MediaItemBuilder(
     constructor(
         context: Context,
         mediaID: String
-    ): this(context, null, null, false, mediaID)
+    ) : this(context, null, null, false, mediaID)
 
     // Build mediaItem without metadata
     fun freshBuild(file: DocumentFile): MediaItem {
@@ -70,7 +72,6 @@ class MediaItemBuilder(
                     MediaMetadata.Builder()
                         .setTitle(title ?: fallbackName)
                         .setArtist(artist ?: fallbackName)
-//                        .setArtworkData(artwork, MediaMetadata.PICTURE_TYPE_BAND_ORCHESTRA)
                         .setArtworkUri(artwork ?: customArtwork)
                         .build()
                 )
@@ -85,10 +86,6 @@ class MediaItemBuilder(
         val cacheDir = context.cacheDir
         val artworkFile = File(cacheDir, "artwork_$mediaID.jpg")
 
-        if (!seekArtwork){
-            Log.d(className, "seekArtwork = false")
-            return null
-        }
         return try {
             val embeddedPicture = retriever.embeddedPicture
             if (embeddedPicture != null) {
@@ -117,7 +114,10 @@ class MediaItemBuilder(
 
             val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
             val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
-            val artwork = tryToCacheArtwork()
+            val artwork = if (!seekArtwork) {
+                Log.d(className, "seekArtwork = false")
+                null
+            } else tryToCacheArtwork()
 
             Log.d(className, "$title, $artwork, $artist")
             mediaItem.buildUpon()
@@ -126,6 +126,24 @@ class MediaItemBuilder(
                         .setTitle(title)
                         .setArtist(artist)
                         .setArtworkUri(artwork ?: customArtwork)
+                        .setDisplayTitle(
+                            if (notificationHeader == NotificationHeader.SongTitle) {
+                                Log.d(className, "Notification name set by title: $title")
+                                title
+                            } else {
+                                val name = try {
+                                    DocumentFile.fromSingleUri(
+                                        context,
+                                        mediaItem.localConfiguration!!.uri
+                                    )!!.name
+                                } catch (e: Exception) {
+                                    Log.d(className, "Can't get file name: ${e.message}")
+                                    title
+                                }
+                                Log.d(className, "Notification name set by file name: $name")
+                                name ?: title
+                            }
+                        )
                         .build()
                 )
                 .build()

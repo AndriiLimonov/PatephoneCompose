@@ -1,4 +1,4 @@
-package com.andrii.patephone.Main
+package com.andrii.patephone.main
 
 import android.app.Application
 import android.app.NotificationChannel

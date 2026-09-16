@@ -1,4 +1,4 @@
-package com.andrii.patephone.Main
+package com.andrii.patephone.main
 
 import android.content.Context
 import android.content.Intent
@@ -70,7 +70,7 @@ import androidx.media3.common.Player
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
-import com.andrii.patephone.Settings.SettingsActivity
+import com.andrii.patephone.settings.SettingsActivity
 import com.andrii.patephone.action.MusicServiceConnection
 import com.andrii.patephone.action.PlayerAction
 import com.andrii.patephone.ui.theme.ApplicationTheme
@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
                     MainContent(
                         Modifier.padding(innerPadding),
                         this,
-                        {openSettings(this)}
+                        { openSettings(this) }
                     )
                 }
             }
@@ -197,7 +197,10 @@ fun MainContent(
             sheetState = sheetState
         ) {
             Column {
-                Row(Modifier.fillMaxWidth().height(90.dp), horizontalArrangement = Arrangement.Center) {
+                Row(
+                    Modifier.fillMaxWidth().height(90.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
                     Button(onClick = { onSettingsPressed() }) {
                         Icon(Icons.Default.Settings, null)
                     }
@@ -211,31 +214,6 @@ fun MainContent(
             }
         }
     }
-
-
-    /*
-    if (showOptions) {
-        AnimatedVisibility(
-            visible = showOptions,
-            enter = slideInVertically(
-                initialOffsetY = { -it }
-            ),
-            exit = slideOutVertically(
-                targetOffsetY = { -it }
-            )
-        ) {
-            Box(Modifier.size(300.dp, 600.dp)) {
-                Column {
-                    Row(Modifier.clickable(true) { openSettings() }) {
-                        Icon(Icons.Default.Settings, null)
-                        Text("Settings")
-                    }
-                    Button({ showOptions = false }) { Text("Close") }
-                }
-            }
-        }
-    }
-     */
 }
 
 
@@ -318,15 +296,14 @@ fun ArtworkFrame(onActionImport: (Uri?) -> Unit, artworkUri: Uri?, artist: Strin
                 shape = RoundedCornerShape(32.dp)
             ),
         contentAlignment = Alignment.Center
-    )
-    {
+    ) {
         SubcomposeAsyncImage(
             model = artworkUri,
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(32.dp)),
-            contentScale = ContentScale.Fit
+            contentScale = ContentScale.Crop
         ) {
             val state = painter.state
             if (state is AsyncImagePainter.State.Loading || state is AsyncImagePainter.State.Error) {
@@ -346,7 +323,6 @@ fun ArtworkFrame(onActionImport: (Uri?) -> Unit, artworkUri: Uri?, artist: Strin
     TextUnderArtwork(onActionImport, artist)
 }
 
-
 @Composable
 fun Slider(onAction: (Float) -> Unit, progress: Float) {
     var isDragging by remember { mutableStateOf(false) }
@@ -364,11 +340,11 @@ fun Slider(onAction: (Float) -> Unit, progress: Float) {
             isDragging = false
             onAction(dragValue)
         },
-        waveLength = 32.dp,     // Setting this to 0.dp results in a Slider
-        waveHeight = 8.dp,     // Setting this to 0.dp results in a Slider
-        waveThickness = 4.dp,   // Defaults to 4.dp irregardless of variant
-        trackThickness = 4.dp,  // Defaults to a thickness based on variant
-        incremental = false,    // Whether to gradually increase waveHeight
+        waveLength = 32.dp,
+        waveHeight = 8.dp,
+        waveThickness = 4.dp,
+        trackThickness = 4.dp,
+        incremental = false,
     )
 }
 
