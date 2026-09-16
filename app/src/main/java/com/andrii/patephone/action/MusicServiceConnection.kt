@@ -32,6 +32,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration.Companion.milliseconds
 
 object MusicServiceConnection {
+    val className: String = this::class.java.simpleName
     val UNSUPPORTED_TYPES = arrayOf("m3u")
     var customArtwork: Uri? = null
     private val _song = MutableStateFlow(Song())
@@ -57,13 +58,13 @@ object MusicServiceConnection {
     private suspend fun getNotificationHeader(context: Context): NotificationHeader {
         val property =
             SettingsManager(context).notificationHeader.first()
-        return property.also { Log.d("MusicServiceConnection", "UseMetadataArtwork = $it") }
+        return property.also { Log.d(className, "NotificationHeader = $it") }
     }
 
     private suspend fun getUseMetadataArtwork(context: Context): Boolean {
         val property =
             SettingsManager(context).useMetadataArtwork.first()
-        return property.also { Log.d("MusicServiceConnection", "UseMetadataArtwork = $it") }
+        return property.also { Log.d(className, "UseMetadataArtwork = $it") }
     }
 
     fun init(context: Context) {

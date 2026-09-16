@@ -23,9 +23,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-class MainViewModel(
-) : ViewModel() {
-    val className = "MainViewModel"
+class MainViewModel : ViewModel() {
+    val className: String = this::class.java.simpleName
     private val _playlist = MutableStateFlow(emptyArray<String>())
 
     val playlist = _playlist.asStateFlow()
@@ -53,6 +52,7 @@ class MainViewModel(
         Log.d(TAG_VIEW_MODEL, "Toggle play pressed")
     }
 
+    @Suppress("REDUNDANT_ELSE_IN_WHEN")
     fun onAction(action: PlayerAction) {
         when (action) {
             is PlayerAction.PlayPause -> togglePlay()
@@ -92,23 +92,45 @@ class MainViewModel(
         MusicServiceConnection.stop()
         MusicServiceConnection.clearMediaItems()
 
+
         viewModelScope.launch(Dispatchers.IO) {
-            listAudioFiles(treeUri, context)
-//            MusicServiceConnection.lazyEnrichment()
+            val recursiveImport: Boolean = SettingsManager(context).recursiveImport.first()
+            // this method returns pair, where first value is MediaItem arraylist, and second value is it's names typed array
+            val files = listAudioFiles(
+                treeUri = treeUri,
+                context = context,
+                recursiveImportDepth = if (recursiveImport) getRecursiveImportDepth(context) else 0,
+                currentDepth = 0
+            )
+            val playlist = files.first
+            viewModelScope.launch(Dispatchers.Main) {
+                MusicServiceConnection.addMediaItems(playlist)
+                _playlist.value = files.second
+            }
         }
     }
 
-    fun listAudioFiles(treeUri: Uri, context: Context) {
-        val recursiveImport: Boolean = runBlocking { SettingsManager(context).recursiveImport.first() }
+    private suspend fun getRecursiveImportDepth(context: Context): Int {
+        val property =
+            SettingsManager(context).recursiveImportDepth.first()
+        return property.also { Log.d(className, "Got recursive import property: $it") }
+    }
+
+    // this method returns pair, where first value is MediaItem arraylist, and second value is it's names typed array
+    fun listAudioFiles(
+        treeUri: Uri,
+        context: Context,
+        recursiveImportDepth: Int,
+        currentDepth: Int
+    ): Pair<ArrayList<MediaItem>, Array<String>> {
         val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
         val retriever = MediaMetadataRetriever()
-        val list = ArrayList<MediaItem>()
-        val playlist = ArrayList<String>()
+        val playlist = ArrayList<MediaItem>()
+        val names = ArrayList<String>()
 
         try {
-            val files = pickedDir?.listFiles() ?: return
+            val files = pickedDir?.listFiles() ?: return Pair(ArrayList<MediaItem>(), emptyArray())
 
-//            val customArtwork =
             MusicServiceConnection.customArtwork =
                 findFolderArtwork(files)
 
@@ -124,13 +146,20 @@ class MainViewModel(
                         MusicServiceConnection.customArtwork,
                         mediaID
                     ).freshBuild(file)
-                    list.add(mediaItem)
-                    playlist.add(
+                    playlist.add(mediaItem)
+                    names.add(
                         (mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle
                         ?: "Unknown") as String
                     )
-                } else if (file.isDirectory && recursiveImport) {
-
+                } else if (file.isDirectory && currentDepth < recursiveImportDepth) {
+                    val files = listAudioFiles(
+                        file.uri,
+                        context,
+                        recursiveImportDepth + 1,
+                        currentDepth + 1
+                    )
+                    files.first.forEach { playlist.add(it) }
+                    files.second.forEach { names.add(it) }
                 }
             }
         } catch (e: Exception) {
@@ -138,13 +167,7 @@ class MainViewModel(
         } finally {
             retriever.release()
         }
-
-
-        viewModelScope.launch(Dispatchers.Main) {
-            MusicServiceConnection.addMediaItems(list)
-        }
-
-        _playlist.value = playlist.toTypedArray()
+        return Pair(playlist, names.toTypedArray())
     }
 
     fun findFolderArtwork(files: Array<DocumentFile>): Uri? {

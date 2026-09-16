@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,6 +56,12 @@ class SettingsActivity : ComponentActivity() {
                         initialValue = NotificationHeader.SongTitle
                     )
                     LazyColumn(Modifier.padding(innerPadding).padding(60.dp)) {
+                        item {
+                            Text(
+                                text = "Settings",
+                                fontSize = 24.sp
+                            )
+                        }
 
                         // Use metadata artwork
                         item {
