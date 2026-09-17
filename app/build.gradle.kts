@@ -10,24 +10,39 @@ android {
             minorApiLevel = 1
         }
     }
-
+     signingConfigs {
+        create("release") {
+            val envPassword = System.getenv("SIGNING_STORE_PASSWORD")
+            
+            if (!envPassword.isNullOrEmpty()) {
+                // Если переменные окружения заданы (например, в CI/CD)
+                storeFile = file(System.getenv("SIGNING_STORE_FILE") ?: "my-release-key.jks")
+                storePassword = envPassword
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            } else {
+                // Если переменных нет, откатываемся на debug-ключ
+                val debugConfig = getByName("debug")
+                storeFile = debugConfig.storeFile
+                storePassword = debugConfig.storePassword
+                keyAlias = debugConfig.keyAlias
+                keyPassword = debugConfig.keyPassword
+            }
+	}
+	}
     defaultConfig {
         applicationId = "com.andrii.patephone"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "beta 0.3.3"
+        versionName = "0.4.0-beta2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
