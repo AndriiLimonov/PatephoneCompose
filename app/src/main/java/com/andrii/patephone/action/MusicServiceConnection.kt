@@ -32,6 +32,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration.Companion.milliseconds
 
 object MusicServiceConnection {
+    val fallbackIcons = mutableListOf<Uri>()
     val className: String = this::class.java.simpleName
     val UNSUPPORTED_TYPES = arrayOf("m3u")
     var customArtwork: Uri? = null

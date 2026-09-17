@@ -14,7 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -55,12 +59,20 @@ class SettingsActivity : ComponentActivity() {
                     val notificationHeader by settingsManager.notificationHeader.collectAsStateWithLifecycle(
                         initialValue = NotificationHeader.SongTitle
                     )
-                    LazyColumn(Modifier.padding(innerPadding).padding(60.dp)) {
+                    LazyColumn(Modifier
+                        .padding(innerPadding)
+                        .padding(60.dp)) {
                         item {
-                            Text(
-                                text = "Settings",
-                                fontSize = 24.sp
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Button({ this@SettingsActivity.finish() }) {
+                                    Icon(Icons.Default.ArrowBackIosNew, null)
+                                }
+                                Spacer(Modifier.size(8.dp))
+                                Text(
+                                    text = "Settings",
+                                    fontSize = 24.sp
+                                )
+                            }
                         }
 
                         // Use metadata artwork
@@ -134,12 +146,14 @@ fun DropdownBox(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(
-        Modifier.background(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(8.dp)
-        ).padding(
-            8.dp
-        )
+        Modifier
+            .background(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(
+                8.dp
+            )
     ) {
         Text(
             text = currentValue,

@@ -289,8 +289,8 @@ fun ArtworkFrame(onActionImport: (Uri?) -> Unit, artworkUri: Uri?, artist: Strin
     Box(
         Modifier
             .padding(24.dp, 24.dp, 24.dp, 0.dp)
-            .fillMaxWidth()
             .aspectRatio(1f)
+            .fillMaxWidth()
             .background(
                 MaterialTheme.colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(32.dp)
