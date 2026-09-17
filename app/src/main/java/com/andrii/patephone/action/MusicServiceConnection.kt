@@ -7,6 +7,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -32,7 +33,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration.Companion.milliseconds
 
 object MusicServiceConnection {
-    val fallbackIcons = mutableListOf<Uri>()
+    val fallbackPictures = mutableListOf<DocumentFile>()
     val className: String = this::class.java.simpleName
     val UNSUPPORTED_TYPES = arrayOf("m3u")
     var customArtwork: Uri? = null

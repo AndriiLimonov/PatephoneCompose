@@ -32,10 +32,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.andrii.patephone.action.MusicServiceConnection
 import com.andrii.patephone.ui.theme.ApplicationTheme
 import kotlin.math.roundToInt
 import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
@@ -59,9 +60,11 @@ class SettingsActivity : ComponentActivity() {
                     val notificationHeader by settingsManager.notificationHeader.collectAsStateWithLifecycle(
                         initialValue = NotificationHeader.SongTitle
                     )
-                    LazyColumn(Modifier
-                        .padding(innerPadding)
-                        .padding(60.dp)) {
+                    LazyColumn(
+                        Modifier
+                            .padding(innerPadding)
+                            .padding(60.dp)
+                    ) {
                         item {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Button({ this@SettingsActivity.finish() }) {
@@ -130,6 +133,27 @@ class SettingsActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        item {
+                            Column {
+                                ListItem(
+                                    headlineContent = { Text("Fallback artwork") },
+                                    supportingContent = { Text("Select picture that will be used as fallback if there is no artwork in metadata") },
+                                )
+                                var uri by remember { mutableStateOf(MusicServiceConnection.customArtwork) }
+                                DropdownBox(
+                                    values = MusicServiceConnection.fallbackPictures.mapNotNull { file -> file.name },
+                                    currentValue = if (uri != null) {
+                                        DocumentFile.fromSingleUri(applicationContext, uri!!)?.name
+                                            ?: ""
+                                    } else "",
+                                    modifier = Modifier.align(Alignment.End)
+                                ) { i ->
+                                    val newUri = MusicServiceConnection.fallbackPictures[i].uri
+                                    MusicServiceConnection.customArtwork = newUri
+                                    uri = newUri
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -142,38 +166,37 @@ class SettingsActivity : ComponentActivity() {
 fun DropdownBox(
     values: List<String>,
     currentValue: String,
-    onNewValue: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    onNewValue: (Int) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Box(
-        Modifier
-            .background(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(8.dp)
-            )
-            .padding(
-                8.dp
-            )
-    ) {
-        Text(
-            text = currentValue,
-            modifier = Modifier.clickable {
-                expanded = true
-            },
-            fontSize = 14.sp
-        )
-    }
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = { expanded = false },
-    ) {
-        values.forEachIndexed { index, value ->
-            Box(modifier = Modifier.padding(8.dp)) {
-                Text(
-                    text = value,
-                    modifier = Modifier.clickable { onNewValue(index) },
-                    fontSize = 14.sp
+    Column(modifier) {
+        Box(
+            Modifier
+                .background(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(8.dp)
                 )
+                .padding(8.dp)
+                .clickable { expanded = true },
+        ) {
+            Text(
+                text = currentValue,
+                fontSize = 14.sp
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            values.forEachIndexed { index, value ->
+                Box(modifier = Modifier.padding(8.dp)) {
+                    Text(
+                        text = value,
+                        modifier = Modifier.clickable { onNewValue(index) },
+                        fontSize = 14.sp
+                    )
+                }
             }
         }
     }

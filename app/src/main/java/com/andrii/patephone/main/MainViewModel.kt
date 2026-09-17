@@ -21,8 +21,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlin.collections.emptyList
 
 class MainViewModel : ViewModel() {
     val className: String = this::class.java.simpleName
@@ -180,7 +178,7 @@ class MainViewModel : ViewModel() {
 
         if (standardCover != null) {
             Log.d("FindFolderArtwork", "Found cover (standard name)")
-            MusicServiceConnection.fallbackIcons.add(standardCover.uri)
+            MusicServiceConnection.fallbackPictures.add(standardCover)
             return standardCover.uri
         }
 
@@ -191,7 +189,7 @@ class MainViewModel : ViewModel() {
 
         Log.d("FindFolderArtwork", "Returning uri: $anyImage")
         if (anyImage != null) {
-            MusicServiceConnection.fallbackIcons.add(anyImage.uri)
+            MusicServiceConnection.fallbackPictures.add(anyImage)
         }
         return anyImage?.uri
     }
