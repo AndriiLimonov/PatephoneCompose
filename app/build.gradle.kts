@@ -13,7 +13,7 @@ android {
      signingConfigs {
         create("release") {
             val envPassword = System.getenv("SIGNING_STORE_PASSWORD")
-            
+
             if (!envPassword.isNullOrEmpty()) {
                 storeFile = file(System.getenv("SIGNING_STORE_FILE") ?: "my-release-key.jks")
                 storePassword = envPassword
@@ -31,7 +31,7 @@ android {
     defaultConfig {
         applicationId = "com.andrii.patephone"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "0.4.0-alpha3"
 
@@ -77,4 +77,5 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("androidx.compose.material3.adaptive:adaptive:1.2.0")
 }

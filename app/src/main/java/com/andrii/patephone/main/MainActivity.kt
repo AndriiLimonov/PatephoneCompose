@@ -1,7 +1,10 @@
+@file:Suppress("FunctionName")
+
 package com.andrii.patephone.main
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -47,6 +50,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -67,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.Player
+import androidx.window.core.layout.WindowSizeClass
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
@@ -84,6 +89,19 @@ class MainActivity : ComponentActivity() {
         setContent {
             ApplicationTheme {
                 Scaffold { innerPadding ->
+                    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+                    val isSmartphone = isSmartphone(windowSizeClass)
+
+                    requestedOrientation = if (isSmartphone) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+
+                    if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)) {
+                        MainHorizontalContent(
+                            Modifier.padding(innerPadding),
+                            this,
+                            { openSettings(this) }
+                        )
+                    }
                     MainContent(
                         Modifier.padding(innerPadding),
                         this,
@@ -116,6 +134,77 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Composable
+fun isSmartphone(windowSizeClass: WindowSizeClass): Boolean {
+    val isCompactWidth =
+        !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+    val isCompactHeight =
+        !windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
+    return isCompactWidth || isCompactHeight
+}
+
+@Composable
+fun MainHorizontalContent(
+    modifier: Modifier,
+    context: Context,
+    onSettingsPressed: () -> Unit,
+    viewModel: MainViewModel = viewModel()
+) {
+    val playlist by viewModel.playlist.collectAsStateWithLifecycle()
+
+    val song = viewModel.song.collectAsState().value
+    val playerState = viewModel.playerState.collectAsState().value
+
+    Row(
+        modifier = modifier
+            .padding(32.dp, 72.dp, 32.dp, 72.dp)
+            .fillMaxSize(),
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            ArtworkFrame(
+                onActionImport = { uri -> viewModel.onActionImport(uri, context.applicationContext) },
+                song.artworkUri,
+                song.artist
+            )
+
+            TitleFrame(song.title, onClick = {})
+        }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Slider(
+                onAction = { float -> viewModel.onSliderMove(float) },
+                progress = playerState.progress
+            )
+            ButtonRow(
+                onAction = { action -> viewModel.onAction(action) },
+                isPlaying = playerState.isPlaying,
+                isShuffleEnabled = playerState.isShuffleEnabled,
+                repeatMode = playerState.repeatMode
+            )
+            Row(
+                Modifier.fillMaxWidth().height(90.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Button(onClick = { onSettingsPressed() }) {
+                    Icon(Icons.Default.Settings, null)
+                }
+            }
+            Playlist(
+                playlist,
+                { index ->
+                    viewModel.seekToMedia(index)
+                }, playerState.currentSongIndex
+            )
+        }
+    }
+}
+
+
 @Preview(showBackground = true)
 @Composable
 fun MainPreview() {
@@ -147,7 +236,6 @@ fun MainPreview() {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-
 @Composable
 fun MainContent(
     modifier: Modifier,
