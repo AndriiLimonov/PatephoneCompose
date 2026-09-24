@@ -1,4 +1,4 @@
-package com.andrii.patephone.main
+package com.andrii.patephone.features.main
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
@@ -8,12 +8,13 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
-import com.andrii.patephone.MediaItemBuilder
-import com.andrii.patephone.PlayerState
-import com.andrii.patephone.Song
-import com.andrii.patephone.action.MusicServiceConnection
-import com.andrii.patephone.action.PlayerAction
-import com.andrii.patephone.settings.SettingsManager
+import com.andrii.patephone.core.player.MediaItemBuilder
+import com.andrii.patephone.core.data.PlayerState
+import com.andrii.patephone.core.data.Song
+import com.andrii.patephone.core.player.MusicServiceConnection
+import com.andrii.patephone.core.TAG_VIEW_MODEL
+import com.andrii.patephone.core.player.PlayerAction
+import com.andrii.patephone.features.settings.SettingsManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

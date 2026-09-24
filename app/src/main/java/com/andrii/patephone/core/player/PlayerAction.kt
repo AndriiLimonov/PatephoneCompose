@@ -1,4 +1,4 @@
-package com.andrii.patephone.action
+package com.andrii.patephone.core.player
 
 sealed class PlayerAction {
     object PlayPause : PlayerAction()

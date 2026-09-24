@@ -1,4 +1,4 @@
-package com.andrii.patephone.action
+package com.andrii.patephone.core.player
 
 import android.content.ComponentName
 import android.content.Context
@@ -12,12 +12,12 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import com.andrii.patephone.MediaItemBuilder
-import com.andrii.patephone.PlayerState
-import com.andrii.patephone.settings.SettingsManager
-import com.andrii.patephone.Song
-import com.andrii.patephone.main.UpdatedService
-import com.andrii.patephone.settings.NotificationHeader
+import com.andrii.patephone.core.player.MediaItemBuilder
+import com.andrii.patephone.core.data.PlayerState
+import com.andrii.patephone.features.settings.SettingsManager
+import com.andrii.patephone.core.data.Song
+import com.andrii.patephone.core.player.UpdatedService
+import com.andrii.patephone.features.settings.SettingsManager.NotificationHeader
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

@@ -1,4 +1,4 @@
-package com.andrii.patephone
+package com.andrii.patephone.core.player
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -9,7 +9,7 @@ import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import com.andrii.patephone.settings.NotificationHeader
+import com.andrii.patephone.features.settings.SettingsManager
 import java.io.File
 import java.io.FileOutputStream
 
@@ -19,7 +19,7 @@ class MediaItemBuilder(
     val customArtwork: Uri?,
     val seekArtwork: Boolean = false,
     val mediaID: String,
-    val notificationHeader: NotificationHeader = NotificationHeader.SongTitle
+    val notificationHeader: SettingsManager.NotificationHeader = SettingsManager.NotificationHeader.SongTitle
 ) {
     val className: String = this::class.java.simpleName
 
@@ -127,7 +127,7 @@ class MediaItemBuilder(
                         .setArtist(artist)
                         .setArtworkUri(artwork ?: customArtwork)
                         .setDisplayTitle(
-                            if (notificationHeader == NotificationHeader.SongTitle) {
+                            if (notificationHeader == SettingsManager.NotificationHeader.SongTitle) {
                                 Log.d(className, "Notification name set by title: $title")
                                 title
                             } else {

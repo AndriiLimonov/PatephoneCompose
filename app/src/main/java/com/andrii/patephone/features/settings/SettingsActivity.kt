@@ -1,4 +1,4 @@
-package com.andrii.patephone.settings
+package com.andrii.patephone.features.settings
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -36,8 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.andrii.patephone.action.MusicServiceConnection
-import com.andrii.patephone.ui.theme.ApplicationTheme
+import com.andrii.patephone.core.player.MusicServiceConnection
+import com.andrii.patephone.core.ui.theme.ApplicationTheme
 import kotlin.math.roundToInt
 import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
 
@@ -58,7 +58,7 @@ class SettingsActivity : ComponentActivity() {
                         initialValue = 1
                     )
                     val notificationHeader by settingsManager.notificationHeader.collectAsStateWithLifecycle(
-                        initialValue = NotificationHeader.SongTitle
+                        initialValue = SettingsManager.NotificationHeader.SongTitle
                     )
                     LazyColumn(
                         Modifier
@@ -124,10 +124,10 @@ class SettingsActivity : ComponentActivity() {
                                 headlineContent = { Text("Notification header") },
                                 trailingContent = {
                                     DropdownBox(
-                                        values = NotificationHeader.entries.map { it.name },
+                                        values = SettingsManager.NotificationHeader.entries.map { it.name },
                                         currentValue = notificationHeader.name,
                                         onNewValue = { index ->
-                                            settingsManager.setNotificationHeader(NotificationHeader.entries[index])
+                                            settingsManager.setNotificationHeader(SettingsManager.NotificationHeader.entries[index])
                                         }
                                     )
                                 }

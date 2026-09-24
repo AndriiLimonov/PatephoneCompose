@@ -1,4 +1,4 @@
-package com.andrii.patephone.main
+package com.andrii.patephone.core.player
 
 import android.app.Notification
 import android.app.PendingIntent
@@ -18,8 +18,9 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.andrii.patephone.BetterShuffleOrder
-import com.andrii.patephone.action.MusicServiceConnection
+import com.andrii.patephone.core.player.MusicServiceConnection
+import com.andrii.patephone.core.NOTIFICATION_CHANNEL_ID
+import com.andrii.patephone.features.main.MainActivity
 
 class UpdatedService : MediaSessionService() {
     val className = "Updated service"

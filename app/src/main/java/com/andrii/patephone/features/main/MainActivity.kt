@@ -1,6 +1,6 @@
 @file:Suppress("FunctionName")
 
-package com.andrii.patephone.main
+package com.andrii.patephone.features.main
 
 import android.content.Context
 import android.content.Intent
@@ -75,10 +75,10 @@ import androidx.window.core.layout.WindowSizeClass
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
-import com.andrii.patephone.settings.SettingsActivity
-import com.andrii.patephone.action.MusicServiceConnection
-import com.andrii.patephone.action.PlayerAction
-import com.andrii.patephone.ui.theme.ApplicationTheme
+import com.andrii.patephone.features.settings.SettingsActivity
+import com.andrii.patephone.core.player.MusicServiceConnection
+import com.andrii.patephone.core.player.PlayerAction
+import com.andrii.patephone.core.ui.theme.ApplicationTheme
 import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
 
 
