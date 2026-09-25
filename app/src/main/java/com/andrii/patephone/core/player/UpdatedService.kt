@@ -51,6 +51,7 @@ class UpdatedService : MediaSessionService() {
                     .setPrioritizeTimeOverSizeThresholds(false)
                     .build()
             )
+            .setHandleAudioBecomingNoisy(true)
             .build()
 
         player.setAudioAttributes(
