@@ -13,13 +13,15 @@ android {
      signingConfigs {
         create("release") {
             val envPassword = System.getenv("SIGNING_STORE_PASSWORD")
-
+            
             if (!envPassword.isNullOrEmpty()) {
+                // Если переменные окружения заданы (например, в CI/CD)
                 storeFile = file(System.getenv("SIGNING_STORE_FILE") ?: "my-release-key.jks")
                 storePassword = envPassword
                 keyAlias = System.getenv("SIGNING_KEY_ALIAS")
                 keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
             } else {
+                // Если переменных нет, откатываемся на debug-ключ
                 val debugConfig = getByName("debug")
                 storeFile = debugConfig.storeFile
                 storePassword = debugConfig.storePassword
@@ -31,9 +33,9 @@ android {
     defaultConfig {
         applicationId = "com.andrii.patephone"
         minSdk = 24
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 1
-        versionName = "0.4.0-alpha4"
+        versionName = "0.4.0-beta2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -68,12 +70,11 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.media3.common.ktx)
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.compose.adaptive)
-    implementation(libs.androidx.compose.ui.tooling.preview)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
