@@ -14,73 +14,46 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.FastRewind
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOn
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.ShuffleOn
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.Player
 import androidx.window.core.layout.WindowSizeClass
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
-import com.andrii.patephone.features.settings.SettingsActivity
 import com.andrii.patephone.core.player.MusicServiceConnection
 import com.andrii.patephone.core.player.PlayerAction
 import com.andrii.patephone.core.ui.theme.ApplicationTheme
+import com.andrii.patephone.features.settings.SettingsActivity
+import com.andrii.patephone.features.settings.SettingsManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
+import java.util.concurrent.TimeUnit
 
+val showTimeAboveSlider = MutableStateFlow(false)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,19 +65,19 @@ class MainActivity : ComponentActivity() {
                     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
                     val isSmartphone = isSmartphone(windowSizeClass)
 
-                    requestedOrientation = if (isSmartphone) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                    else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    requestedOrientation =
+                        if (isSmartphone) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+
 
                     if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)) {
                         MainHorizontalContent(
                             Modifier.padding(innerPadding),
-                            this,
                             { openSettings(this) }
                         )
                     }
                     MainContent(
                         Modifier.padding(innerPadding),
-                        this,
                         { openSettings(this) }
                     )
                 }
@@ -124,6 +97,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        lifecycleScope.launch {
+            showTimeAboveSlider.value = SettingsManager(applicationContext).showTimeAboveSlider.first()
+        }
         MusicServiceConnection.lazyEnrichment(this.applicationContext)
         MusicServiceConnection.startTracking()
     }
@@ -146,14 +122,13 @@ fun isSmartphone(windowSizeClass: WindowSizeClass): Boolean {
 @Composable
 fun MainHorizontalContent(
     modifier: Modifier,
-    context: Context,
     onSettingsPressed: () -> Unit,
     viewModel: MainViewModel = viewModel()
 ) {
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
 
-    val song = viewModel.song.collectAsState().value
-    val playerState = viewModel.playerState.collectAsState().value
+    val song = viewModel.song.collectAsStateWithLifecycle().value
+    val playerState = viewModel.playerState.collectAsStateWithLifecycle().value
 
     Row(
         modifier = modifier
@@ -165,7 +140,11 @@ fun MainHorizontalContent(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             ArtworkFrame(
-                onActionImport = { uri -> viewModel.onActionImport(uri, context.applicationContext) },
+                onActionImport = { uri ->
+                    viewModel.onActionImport(
+                        uri,
+                    )
+                },
                 song.artworkUri,
                 song.artist
             )
@@ -178,7 +157,8 @@ fun MainHorizontalContent(
         ) {
             Slider(
                 onAction = { float -> viewModel.onSliderMove(float) },
-                progress = playerState.progress
+                currentTime = playerState.currentTime,
+                songDuration = playerState.currentSongDuration
             )
             ButtonRow(
                 onAction = { action -> viewModel.onAction(action) },
@@ -204,14 +184,34 @@ fun MainHorizontalContent(
     }
 }
 
-
+/*
 @Preview(showBackground = true)
 @Composable
-fun MainPreview() {
+fun HorizontalContent() {
     ApplicationTheme {
         Surface(
+            modifier = Modifier.size(1000.dp, 860.dp)
+        ) {
+            MainHorizontalContent(
+                modifier = Modifier,
+                onSettingsPressed = {}
+            )
+        }
+    }
+}
+
+*/
+@Preview(
+    showBackground = true,
+    widthDp = 840,
+    heightDp = 450
+)
+@Composable
+fun VerticalPreview() {
+    MaterialTheme {
+        Surface(
             modifier = Modifier
-                .size(420.dp, 860.dp)
+                .fillMaxSize()
         ) {
             Column(
                 modifier = Modifier
@@ -222,7 +222,7 @@ fun MainPreview() {
             )
             {
                 ArtworkFrame(onActionImport = {}, null, "some artist")
-                Slider({}, 0.5f)
+                Slider({}, 0, 0)
                 ButtonRow(
                     {},
                     isPlaying = false,
@@ -239,16 +239,16 @@ fun MainPreview() {
 @Composable
 fun MainContent(
     modifier: Modifier,
-    context: Context,
     onSettingsPressed: () -> Unit,
     viewModel: MainViewModel = viewModel()
 ) {
+    showTimeAboveSlider.value = viewModel.getShowTimeAboveSlider()
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
 
-    val song = viewModel.song.collectAsState().value
-    val playerState = viewModel.playerState.collectAsState().value
+    val song = viewModel.song.collectAsStateWithLifecycle().value
+    val playerState = viewModel.playerState.collectAsStateWithLifecycle().value
 
     Column(
         modifier = modifier
@@ -259,13 +259,14 @@ fun MainContent(
     )
     {
         ArtworkFrame(
-            onActionImport = { uri -> viewModel.onActionImport(uri, context.applicationContext) },
+            onActionImport = { uri -> viewModel.onActionImport(uri) },
             song.artworkUri,
             song.artist
         )
         Slider(
             onAction = { float -> viewModel.onSliderMove(float) },
-            progress = playerState.progress
+            songDuration = playerState.currentSongDuration,
+            currentTime = playerState.currentTime
         )
         ButtonRow(
             onAction = { action -> viewModel.onAction(action) },
@@ -274,8 +275,7 @@ fun MainContent(
             repeatMode = playerState.repeatMode
         )
         TitleFrame(song.title, onClick = {
-            showBottomSheet =
-                playlist.isNotEmpty()
+            showBottomSheet = true
         })
     }
 
@@ -293,12 +293,14 @@ fun MainContent(
                         Icon(Icons.Default.Settings, null)
                     }
                 }
-                Playlist(
-                    playlist,
-                    { index ->
-                        viewModel.seekToMedia(index)
-                    }, playerState.currentSongIndex
-                )
+                if (playlist.isNotEmpty()) {
+                    Playlist(
+                        playlist,
+                        { index ->
+                            viewModel.seekToMedia(index)
+                        }, playerState.currentSongIndex
+                    )
+                }
             }
         }
     }
@@ -412,11 +414,48 @@ fun ArtworkFrame(onActionImport: (Uri?) -> Unit, artworkUri: Uri?, artist: Strin
 }
 
 @Composable
-fun Slider(onAction: (Float) -> Unit, progress: Float) {
+fun SliderTime(duration: Long, time: Long) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+    ) {
+        Text(
+            text = convertTime(time),
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = convertTime(duration),
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+fun convertTime(millis: Long): String {
+    if (millis == 0L) return "0:0"
+    val hours = TimeUnit.MILLISECONDS.toHours(millis)
+    val mins = TimeUnit.MILLISECONDS.toMinutes(millis) % 60
+    val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) % 60
+    if (seconds < 1) return "0:0"
+
+    return if (hours > 0) ("${hours}:${mins}:${seconds}")
+    else ("${mins}:${seconds}")
+
+}
+
+@Composable
+fun Slider(onAction: (Float) -> Unit, songDuration: Long, currentTime: Long) {
+    val progress: Float =
+        if (currentTime > 0f) currentTime.toFloat() / songDuration.toFloat() else 0f
     var isDragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(progress) }
-
     val displayValue = if (isDragging) dragValue else progress
+    val showTimeAboveSlider = showTimeAboveSlider.value
+
+    if (showTimeAboveSlider) {
+        SliderTime(songDuration, currentTime)
+    }
 
     WavySlider3(
         value = displayValue,

@@ -12,11 +12,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import com.andrii.patephone.core.player.MediaItemBuilder
 import com.andrii.patephone.core.data.PlayerState
-import com.andrii.patephone.features.settings.SettingsManager
 import com.andrii.patephone.core.data.Song
-import com.andrii.patephone.core.player.UpdatedService
+import com.andrii.patephone.features.settings.SettingsManager
 import com.andrii.patephone.features.settings.SettingsManager.NotificationHeader
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
@@ -38,11 +36,7 @@ object MusicServiceConnection {
     val UNSUPPORTED_TYPES = arrayOf("m3u")
     var customArtwork: Uri? = null
     private val _song = MutableStateFlow(Song())
-    private val _playerState = MutableStateFlow(
-        PlayerState(
-            currentSongIndex = 0
-        )
-    )
+    private val _playerState = MutableStateFlow(PlayerState())
     val song = _song.asStateFlow()
     val playerState = _playerState.asStateFlow()
 
@@ -134,22 +128,13 @@ object MusicServiceConnection {
         )
         val oldState = _playerState.value
         _playerState.value = PlayerState(
-            progress = oldState.progress,
             isPlaying = oldState.isPlaying,
             isShuffleEnabled = oldState.isShuffleEnabled,
+            currentSongDuration = oldState.currentSongDuration,
+            currentTime = oldState.currentTime,
             repeatMode = oldState.repeatMode,
             currentSongIndex = mediaController?.currentMediaItemIndex ?: 0
         )
-        /*
-        _title.value =
-            mediaItem?.mediaMetadata?.title?.toString() ?: "Untitled"
-        _artist.value =
-            mediaItem?.mediaMetadata?.artist?.toString() ?: "Unknown"
-        _artworkUri.value =
-            mediaItem?.mediaMetadata?.artworkUri
-        _currentSongIndex.value =
-            mediaController?.currentMediaItemIndex ?: 0
-         */
     }
 
     private var job: Job? = null
@@ -159,9 +144,9 @@ object MusicServiceConnection {
         if (job?.isActive == true) return
         job = scope.launch {
             while (true) {
-                val pos = mediaController?.currentPosition?.toFloat() ?: 0f
-                val dur = mediaController?.duration?.toFloat() ?: 1f
-                _playerState.value = _playerState.value.copy(progress = pos / dur)
+                val pos = mediaController?.currentPosition ?: 0
+                val dur = mediaController?.duration ?: 1
+                _playerState.value = _playerState.value.copy(currentSongDuration = dur, currentTime = pos)
                 delay(1000L.milliseconds)
             }
         }

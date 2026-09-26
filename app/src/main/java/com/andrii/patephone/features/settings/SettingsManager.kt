@@ -21,23 +21,43 @@ class SettingsManager(private val androidContext: Context) {
     private val RECURSIVE_IMPORT_DEPTH_KEY = intPreferencesKey("recursive_import_depth")
     private val METADATA_ARTWORK_KEY = booleanPreferencesKey("metadata_artwork")
     private val NOTIFICATION_HEADER_KEY = intPreferencesKey("notification_header")
+    private val SHOW_TIME_ABOVE_SLIDER_KEY = booleanPreferencesKey("show_time_above_slider")
 
     enum class NotificationHeader {
         FileName,
         SongTitle
     }
 
-    val useMetadataArtwork: Flow<Boolean> = androidContext.dataStore.data.map { preferences ->
-        preferences[METADATA_ARTWORK_KEY] ?: true
+    val useMetadataArtwork: Flow<Boolean> by lazy {
+        androidContext.dataStore.data.map { preferences ->
+            preferences[METADATA_ARTWORK_KEY] ?: true
+        }
     }
-    val recursiveImport: Flow<Boolean> = androidContext.dataStore.data.map { preferences ->
-        preferences[RECURSIVE_IMPORT_KEY] ?: false
+    val recursiveImport: Flow<Boolean> by lazy {
+        androidContext.dataStore.data.map { preferences ->
+            preferences[RECURSIVE_IMPORT_KEY] ?: false
+        }
     }
-    val recursiveImportDepth: Flow<Int> = androidContext.dataStore.data.map { preferences ->
-        preferences[RECURSIVE_IMPORT_DEPTH_KEY] ?: 1
+    val recursiveImportDepth: Flow<Int> by lazy {
+        androidContext.dataStore.data.map { preferences ->
+            preferences[RECURSIVE_IMPORT_DEPTH_KEY] ?: 1
+        }
     }
-    val notificationHeader: Flow<NotificationHeader> = androidContext.dataStore.data.map { preferences ->
-        preferences[NOTIFICATION_HEADER_KEY]?.let { NotificationHeader.entries[it] } ?: NotificationHeader.FileName
+    val notificationHeader: Flow<NotificationHeader> by lazy {
+        androidContext.dataStore.data.map { preferences ->
+            preferences[NOTIFICATION_HEADER_KEY]?.let { NotificationHeader.entries[it] } ?: NotificationHeader.FileName
+        }
+    }
+    val showTimeAboveSlider: Flow<Boolean> by lazy {
+        androidContext.dataStore.data.map { preferences ->
+            preferences[SHOW_TIME_ABOVE_SLIDER_KEY] ?: false
+        }
+    }
+
+    fun setShowTimeAboveSlider(enabled: Boolean) = CoroutineScope(Dispatchers.IO).launch {
+        androidContext.dataStore.edit { preferences ->
+            preferences[SHOW_TIME_ABOVE_SLIDER_KEY] = enabled
+        }
     }
 
     fun setMetadataArtwork(enabled: Boolean) = CoroutineScope(Dispatchers.IO).launch {

@@ -1,10 +1,13 @@
 package com.andrii.patephone.features.main
 
+import android.app.Application
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
+import androidx.compose.ui.platform.LocalContext
 import androidx.documentfile.provider.DocumentFile
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -22,8 +25,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
-class MainViewModel : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
     val className: String = this::class.java.simpleName
     private val _playlist = MutableStateFlow(emptyArray<String>())
 
@@ -65,6 +69,13 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun getShowTimeAboveSlider(): Boolean {
+        val context = getApplication<Application>().applicationContext
+        return runBlocking {
+            SettingsManager(context).showTimeAboveSlider.first()
+        }
+    }
+
     fun addToFavs(mediaItem: MediaItem?) {
         TODO("Not yet implemented")
         /* if (mediaItem == null) return
@@ -87,7 +98,8 @@ class MainViewModel : ViewModel() {
          */
     }
 
-    fun onActionImport(treeUri: Uri?, context: Context) {
+    fun onActionImport(treeUri: Uri?) {
+        val context = getApplication<Application>().applicationContext
         if (treeUri == null) return
         MusicServiceConnection.stop()
         MusicServiceConnection.clearMediaItems()

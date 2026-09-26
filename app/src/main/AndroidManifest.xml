@@ -9,7 +9,7 @@
     <attribution android:tag="media" android:label="@string/playback_attribution_label" />
 
     <application
-        android:name=".main.App"
+        android:name=".core.App"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -19,12 +19,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
 
-        <activity android:name=".settings.SettingsActivity"
+        <activity android:name=".features.settings.SettingsActivity"
             android:label="Patephone settings"
             android:exported="true"
             android:theme="@style/Theme.MyApplication"/>
         <activity
-            android:name=".main.MainActivity"
+            android:name=".features.main.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.MyApplication">
             <intent-filter>
@@ -49,7 +49,7 @@
         </activity>
 
         <service
-            android:name=".main.UpdatedService"
+            android:name=".core.player.UpdatedService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>

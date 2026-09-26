@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package com.andrii.patephone.features.settings
 
 import android.os.Bundle
@@ -60,6 +62,10 @@ class SettingsActivity : ComponentActivity() {
                     val notificationHeader by settingsManager.notificationHeader.collectAsStateWithLifecycle(
                         initialValue = SettingsManager.NotificationHeader.SongTitle
                     )
+                    val showTimeAboveSlider by settingsManager.showTimeAboveSlider.collectAsStateWithLifecycle(
+                        initialValue = true
+                    )
+
                     LazyColumn(
                         Modifier
                             .padding(innerPadding)
@@ -104,6 +110,7 @@ class SettingsActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        // Recursive import depth
                         if (recursiveImport) item {
                             Column(Modifier.padding(start = 30.dp)) {
                                 ListItem(
@@ -119,6 +126,7 @@ class SettingsActivity : ComponentActivity() {
                                 Spacer(Modifier.size(8.dp))
                             }
                         }
+                        // Notification header
                         item {
                             ListItem(
                                 headlineContent = { Text("Notification header") },
@@ -133,6 +141,7 @@ class SettingsActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        // Fallback artwork selection
                         item {
                             Column {
                                 ListItem(
@@ -153,6 +162,32 @@ class SettingsActivity : ComponentActivity() {
                                     uri = newUri
                                 }
                             }
+                        }
+                        // Show time above slider
+                        item {
+                            ListItem(
+                                headlineContent = {
+                                    Text("Time above slider")
+                                },
+                                supportingContent = {
+                                    Text(
+                                        text = "alpha",
+                                        modifier = Modifier
+                                            .padding(8.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.primaryContainer,
+                                                shape = RoundedCornerShape(8.dp)
+                                            ),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                },
+                                trailingContent = {
+                                    Switch(
+                                        checked = showTimeAboveSlider,
+                                        onCheckedChange = { settingsManager.setShowTimeAboveSlider(it) }
+                                    )
+                                }
+                            )
                         }
                     }
                 }
