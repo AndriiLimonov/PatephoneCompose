@@ -57,32 +57,17 @@ Patephone is a **clean, no-fuss local music player** for Android. You point it a
 
 ## 📐 Architecture
 
-
-| level 1 | level 2 | level 3 | file / folder |
-|---|---|---|---|
-| core | | | folder |
-| | App.kt | | file |
-| | data | | folder |
-| | | PlayerState.kt | file |
-| | | Song.kt | file |
-| | player | | folder |
-| | | BetterShuffleOrder.kt | file |
-| | | MediaItemBuilder.kt | file |
-| | | MusicServiceConnection.kt | file |
-| | | PlayerAction.kt | file |
-| | | UpdatedService.kt | file |
-| | ui | | folder |
-| | | theme | folder |
-| | | | Color.kt (file) |
-| | | | Theme.kt (file) |
-| | | | Type.kt (file) |
-| features | | | folder |
-| | main | | folder |
-| | | MainActivity.kt | file |
-| | | MainViewModel.kt | file |
-| | settings | | folder |
-| | | SettingsActivity.kt | file |
-| | | SettingsManager.kt | file |
+┌─────────────────────────────────────────────┐
+│                  UI Layer                   │
+│         MainActivity + SettingsActivity     │
+│         (Jetpack Compose, Material 3)       │
+├─────────────────────────────────────────────┤
+│              ViewModel / State              │
+│          MainViewModel + StateFlows         │
+├─────────────────────────────────────────────┤
+│            Media Playback Layer             │
+│     MediaSessionService + ExoPlayer         │
+└─────────────────────────────────────────────┘
 
 **MVVM + Service** pattern. The app connects to a `MediaSessionService` via `MusicServiceConnection`, exposing player state through `StateFlow`.
 
