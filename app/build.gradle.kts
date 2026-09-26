@@ -73,9 +73,9 @@ dependencies {
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.compose.adaptive)
+    implementation(libs.androidx.compose.ui.tooling.preview)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    debugImplementation(libs.androidx.compose.ui.tooling.preview)
 }
