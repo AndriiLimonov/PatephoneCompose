@@ -57,6 +57,7 @@ Patephone is a **clean, no-fuss local music player** for Android. You point it a
 
 ## 📐 Architecture
 
+```
 ┌─────────────────────────────────────────────┐
 │                  UI Layer                   │
 │         MainActivity + SettingsActivity     │
@@ -68,7 +69,7 @@ Patephone is a **clean, no-fuss local music player** for Android. You point it a
 │            Media Playback Layer             │
 │     MediaSessionService + ExoPlayer         │
 └─────────────────────────────────────────────┘
-
+```
 **MVVM + Service** pattern. The app connects to a `MediaSessionService` via `MusicServiceConnection`, exposing player state through `StateFlow`.
 
 ---
