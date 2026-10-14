@@ -14,20 +14,56 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOn
+import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.ShuffleOn
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.runtime.*
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +77,7 @@ import androidx.window.core.layout.WindowSizeClass
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
+import com.andrii.patephone.core.data.PlaylistItem
 import com.andrii.patephone.core.player.MusicServiceConnection
 import com.andrii.patephone.core.player.PlayerAction
 import com.andrii.patephone.core.ui.theme.ApplicationTheme
@@ -49,9 +86,9 @@ import com.andrii.patephone.features.settings.SettingsManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
+import java.util.Locale
 import java.util.concurrent.TimeUnit
+import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
 
 val showTimeAboveSlider = MutableStateFlow(false)
 
@@ -98,7 +135,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         lifecycleScope.launch {
-            showTimeAboveSlider.value = SettingsManager(applicationContext).showTimeAboveSlider.first()
+            showTimeAboveSlider.value =
+                SettingsManager(applicationContext).showTimeAboveSlider.first()
         }
         MusicServiceConnection.lazyEnrichment(this.applicationContext)
         MusicServiceConnection.startTracking()
@@ -167,7 +205,9 @@ fun MainHorizontalContent(
                 repeatMode = playerState.repeatMode
             )
             Row(
-                Modifier.fillMaxWidth().height(90.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .height(90.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
                 Button(onClick = { onSettingsPressed() }) {
@@ -286,7 +326,9 @@ fun MainContent(
         ) {
             Column {
                 Row(
-                    Modifier.fillMaxWidth().height(90.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .height(90.dp),
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Button(onClick = { onSettingsPressed() }) {
@@ -339,7 +381,7 @@ fun ImportButton(onActionImport: (Uri?) -> Unit) {
 
 @Composable
 fun Playlist(
-    playlist: Array<String>,
+    playlist: Array<PlaylistItem>,
     onAction: (index: Int) -> Unit,
     currentSongIndex: Int
 ) {
@@ -347,28 +389,37 @@ fun Playlist(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        itemsIndexed(playlist) { index, song ->
-            Text(
-                text = song,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .clickable {
-                        onAction(index)
-                    }
-                    .then(
-                        if (index == currentSongIndex) {
-                            Modifier
-                                .background(
-                                    MaterialTheme.colorScheme.primaryContainer,
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .padding(8.dp, 0.dp)
-                        } else {
-                            Modifier
+        items(playlist) { playlistItem ->
+            if (playlistItem is PlaylistItem.SongItem) {
+                val index = playlistItem.index
+                Text(
+                    text = playlistItem.value,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .clickable {
+                            onAction(index)
                         }
-                    ),
-                color = if (index == currentSongIndex) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground
-            )
+                        .then(
+                            if (index == currentSongIndex) {
+                                Modifier
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(8.dp, 0.dp)
+                            } else {
+                                Modifier
+                            }
+                        ),
+                    color = if (index == currentSongIndex) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground
+                )
+            } else {
+                Text (
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.Bold,
+                    text = playlistItem.value
+                )
+            }
             Spacer(Modifier.size(8.dp))
         }
     }
@@ -433,15 +484,13 @@ fun SliderTime(duration: Long, time: Long) {
 }
 
 fun convertTime(millis: Long): String {
-    if (millis == 0L) return "0:0"
     val hours = TimeUnit.MILLISECONDS.toHours(millis)
     val mins = TimeUnit.MILLISECONDS.toMinutes(millis) % 60
     val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) % 60
-    if (seconds < 1) return "0:0"
+    if (seconds + mins + hours < 1) return "00:00"
 
-    return if (hours > 0) ("${hours}:${mins}:${seconds}")
-    else ("${mins}:${seconds}")
-
+    return if (hours > 0) String.format(Locale.ROOT, "%02d:%02d:%02d", hours, mins, seconds)
+    else String.format(Locale.ROOT, "%02d:%02d", mins, seconds)
 }
 
 @Composable

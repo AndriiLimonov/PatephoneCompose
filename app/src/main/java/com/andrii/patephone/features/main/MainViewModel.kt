@@ -5,10 +5,8 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
-import androidx.compose.ui.platform.LocalContext
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import com.andrii.patephone.core.player.MediaItemBuilder
@@ -16,6 +14,7 @@ import com.andrii.patephone.core.data.PlayerState
 import com.andrii.patephone.core.data.Song
 import com.andrii.patephone.core.player.MusicServiceConnection
 import com.andrii.patephone.core.TAG_VIEW_MODEL
+import com.andrii.patephone.core.data.PlaylistItem
 import com.andrii.patephone.core.player.PlayerAction
 import com.andrii.patephone.features.settings.SettingsManager
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +28,7 @@ import kotlinx.coroutines.runBlocking
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     val className: String = this::class.java.simpleName
-    private val _playlist = MutableStateFlow(emptyArray<String>())
+    private val _playlist = MutableStateFlow(emptyArray<PlaylistItem>())
 
     val playlist = _playlist.asStateFlow()
     val playerState = MusicServiceConnection.playerState.stateIn(
@@ -64,7 +63,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             is PlayerAction.SkipPrevious -> MusicServiceConnection.skipToPrevious()
             is PlayerAction.ToggleShuffle -> MusicServiceConnection.toggleShuffle()
             is PlayerAction.ToggleRepeat -> MusicServiceConnection.toggleRepeat()
-            is PlayerAction.AddToFavs -> addToFavs(MusicServiceConnection.getCurrentMediaItem())
             else -> throw IllegalArgumentException("Unexpected action type")
         }
     }
@@ -76,48 +74,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addToFavs(mediaItem: MediaItem?) {
-        TODO("Not yet implemented")
-        /* if (mediaItem == null) return
-        try {
-            val uri: Uri = mediaItem.localConfiguration!!.uri
-            val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            val resolver = context.contentResolver
-            resolver.takePersistableUriPermission(uri, takeFlags)
-            // Put file name as key and song uri
-            CoroutineScope(Dispatchers.IO).launch {
-                UriDiskCache(context).putUri(
-                    key = mediaItem.mediaMetadata.displayTitle as String? ?: DocumentFile.fromSingleUri(context, uri)?.name ?: "Unknown",
-                    uri = uri
-                )
-            }
-            Log.d(CLASSNAME, "Successfully cached song as favourite")
-        } catch (e: Exception) {
-            Log.e(CLASSNAME, "Song wasn't cached: ${e.cause}")
-        }
-         */
-    }
-
     fun onActionImport(treeUri: Uri?) {
         val context = getApplication<Application>().applicationContext
         if (treeUri == null) return
         MusicServiceConnection.stop()
         MusicServiceConnection.clearMediaItems()
-
+        MusicServiceConnection.fallbackPictures.clear()
+        MusicServiceConnection.customArtwork = null
 
         viewModelScope.launch(Dispatchers.IO) {
             val recursiveImport: Boolean = SettingsManager(context).recursiveImport.first()
             // this method returns pair, where first value is MediaItem arraylist, and second value is it's names typed array
-            val files = listAudioFiles(
+            val fileDataPairs = listAudioFiles(
                 treeUri = treeUri,
                 context = context,
                 recursiveImportDepth = if (recursiveImport) getRecursiveImportDepth(context) else 0,
                 currentDepth = 0
             )
-            val playlist = files.first
+            val playlist = fileDataPairs.first
             viewModelScope.launch(Dispatchers.Main) {
                 MusicServiceConnection.addMediaItems(playlist)
-                _playlist.value = files.second
+                _playlist.value = fileDataPairs.second
+                val fallbacks = MusicServiceConnection.fallbackPictures
+                MusicServiceConnection.customArtwork = fallbacks.firstOrNull()?.uri
+                MusicServiceConnection.lazyEnrichment(context)
             }
         }
     }
@@ -133,18 +113,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         treeUri: Uri,
         context: Context,
         recursiveImportDepth: Int,
-        currentDepth: Int
-    ): Pair<ArrayList<MediaItem>, Array<String>> {
+        currentDepth: Int,
+        lastIndex: Int = 0
+    ): Pair<ArrayList<MediaItem>, Array<PlaylistItem>> {
         val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
         val retriever = MediaMetadataRetriever()
         val playlist = ArrayList<MediaItem>()
-        val names = ArrayList<String>()
+        val names = ArrayList<PlaylistItem>()
+        var currentIndex = lastIndex
 
         try {
-            val files = pickedDir?.listFiles() ?: return Pair(ArrayList<MediaItem>(), emptyArray())
+            val files = pickedDir?.listFiles()?.apply { sortBy { it.name ?: "" } } ?: return Pair(ArrayList<MediaItem>(), emptyArray())
 
-            MusicServiceConnection.customArtwork =
-                findFolderArtwork(files)
+            for (file in findFolderArtworks(files)) {
+                MusicServiceConnection.fallbackPictures.add(file)
+            }
 
             for (file in files) {
                 if (file.isFile && (file.type?.startsWith("audio/") == true) && (file.name?.substringAfterLast(
@@ -160,17 +143,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ).freshBuild(file)
                     playlist.add(mediaItem)
                     names.add(
-                        (mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle
-                        ?: "Unknown") as String
+                        PlaylistItem.SongItem(
+                            value =(mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle
+                            ?: "Unknown") as String,
+                            index = currentIndex++
+                        )
                     )
                 } else if (file.isDirectory && currentDepth < recursiveImportDepth) {
                     val files = listAudioFiles(
                         file.uri,
                         context,
                         recursiveImportDepth + 1,
-                        currentDepth + 1
+                        currentDepth + 1,
+                        currentIndex
                     )
-                    files.first.forEach { playlist.add(it) }
+                    val songsFound = files.first
+                    if (songsFound.isNotEmpty()) {
+                        names.add(PlaylistItem.FolderTitle(file.name ?: "Inner directory"))
+                    }
+                    songsFound.forEach { playlist.add(it) }
                     files.second.forEach { names.add(it) }
                 }
             }
@@ -182,29 +173,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return Pair(playlist, names.toTypedArray())
     }
 
-    fun findFolderArtwork(files: Array<DocumentFile>): Uri? {
-        val standardCover = files.firstOrNull { file ->
-            val name = file.name?.lowercase() ?: ""
-            name == "cover.jpg" || name == "cover.png" ||
-                    name == "folder.jpg" || name == "album.jpg" || name == "artwork.jpg"
+    fun findFolderArtworks(files: Array<DocumentFile>): ArrayList<DocumentFile> {
+        val foundedPictures = ArrayList<DocumentFile>()
+        files.forEach {
+            val name = it.name?.lowercase() ?: ""
+            if (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png")) {
+                foundedPictures.add(it)
+            }
         }
-
-        if (standardCover != null) {
-            Log.d("FindFolderArtwork", "Found cover (standard name)")
-            MusicServiceConnection.fallbackPictures.add(standardCover)
-            return standardCover.uri
-        }
-
-        val anyImage = files.firstOrNull { file ->
-            val name = file.name?.lowercase() ?: ""
-            name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png")
-        }
-
-        Log.d("FindFolderArtwork", "Returning uri: $anyImage")
-        if (anyImage != null) {
-            MusicServiceConnection.fallbackPictures.add(anyImage)
-        }
-        return anyImage?.uri
+        Log.d(className, "Uri found in dir: ${foundedPictures.size}")
+        return foundedPictures
     }
 
     fun onSliderMove(float: Float) {
@@ -213,7 +191,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        _playlist.value = emptyArray<String>()
+        _playlist.value = emptyArray<PlaylistItem>()
         MusicServiceConnection.stopTracking()
         super.onCleared()
     }
