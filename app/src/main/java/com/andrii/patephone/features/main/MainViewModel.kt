@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     val className: String = this::class.java.simpleName
@@ -107,21 +108,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return property.also { Log.d(className, "Got recursive import property: $it") }
     }
 
-    // this method returns pair, where first value is MediaItem arraylist, and second value is it's names typed array
-    fun listAudioFiles(
+    // this method returns , where first value is MediaItem arraylist, the second value
+    // is it's names typed array, and the third is next index (used for recursive import)
+    suspend fun listAudioFiles(
         treeUri: Uri,
         context: Context,
         recursiveImportDepth: Int,
         currentDepth: Int,
         lastIndex: Int = 0
-    ): Pair<ArrayList<MediaItem>, Array<PlaylistItem>> {
+    ): Triple<ArrayList<MediaItem>, Array<PlaylistItem>, Int> {
         val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
         val playlist = ArrayList<MediaItem>()
         val names = ArrayList<PlaylistItem>()
         var currentIndex = lastIndex
 
         try {
-            val files = pickedDir?.listFiles()?.apply { sortBy { it.name ?: "" } } ?: return Pair(ArrayList<MediaItem>(), emptyArray())
+            val files = pickedDir?.listFiles()?.apply { sortBy { it.name ?: "" } } ?: return Triple(
+                ArrayList<MediaItem>(),
+                emptyArray(),
+                0
+            )
 
             for (file in findFolderArtworks(files)) {
                 MusicServiceConnection.fallbackPictures.add(file)
@@ -142,20 +148,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     playlist.add(mediaItem)
                     names.add(
                         PlaylistItem.SongItem(
-                            value =(mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle
-                            ?: "Unknown") as String,
+                            value = (mediaItem.mediaMetadata.title
+                                ?: mediaItem.mediaMetadata.displayTitle
+                                ?: "Unknown") as String,
                             index = currentIndex++
                         )
                     )
                 } else if (file.isDirectory && currentDepth < recursiveImportDepth) {
-                    val files = listAudioFiles(
-                        file.uri,
-                        context,
-                        recursiveImportDepth + 1,
-                        currentDepth + 1,
-                        currentIndex
-                    )
+                    val files = withContext(Dispatchers.IO) {
+                        listAudioFiles(
+                            file.uri,
+                            context,
+                            recursiveImportDepth + 1,
+                            currentDepth + 1,
+                            currentIndex
+                        )
+                    }
                     val songsFound = files.first
+                    currentIndex = files.third
                     if (songsFound.isNotEmpty()) {
                         names.add(PlaylistItem.FolderTitle(file.name ?: "Inner directory"))
                     }
@@ -166,7 +176,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } catch (e: Exception) {
             Log.e(className, "Something went wrong by import: ${e.printStackTrace()}")
         }
-        return Pair(playlist, names.toTypedArray())
+        return Triple(playlist, names.toTypedArray(), currentIndex)
     }
 
     fun findFolderArtworks(files: Array<DocumentFile>): ArrayList<DocumentFile> {
