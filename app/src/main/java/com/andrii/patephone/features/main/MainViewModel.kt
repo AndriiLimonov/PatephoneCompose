@@ -2,19 +2,18 @@ package com.andrii.patephone.features.main
 
 import android.app.Application
 import android.content.Context
-import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
-import com.andrii.patephone.core.player.MediaItemBuilder
-import com.andrii.patephone.core.data.PlayerState
-import com.andrii.patephone.core.data.Song
-import com.andrii.patephone.core.player.MusicServiceConnection
 import com.andrii.patephone.core.TAG_VIEW_MODEL
+import com.andrii.patephone.core.data.PlayerState
 import com.andrii.patephone.core.data.PlaylistItem
+import com.andrii.patephone.core.data.Song
+import com.andrii.patephone.core.player.MediaItemBuilder
+import com.andrii.patephone.core.player.MusicServiceConnection
 import com.andrii.patephone.core.player.PlayerAction
 import com.andrii.patephone.features.settings.SettingsManager
 import kotlinx.coroutines.Dispatchers
@@ -117,7 +116,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         lastIndex: Int = 0
     ): Pair<ArrayList<MediaItem>, Array<PlaylistItem>> {
         val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
-        val retriever = MediaMetadataRetriever()
         val playlist = ArrayList<MediaItem>()
         val names = ArrayList<PlaylistItem>()
         var currentIndex = lastIndex
@@ -167,8 +165,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         } catch (e: Exception) {
             Log.e(className, "Something went wrong by import: ${e.printStackTrace()}")
-        } finally {
-            retriever.release()
         }
         return Pair(playlist, names.toTypedArray())
     }
