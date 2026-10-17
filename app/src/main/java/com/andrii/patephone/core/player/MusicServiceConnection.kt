@@ -146,7 +146,8 @@ object MusicServiceConnection {
             while (true) {
                 val pos = mediaController?.currentPosition ?: 0
                 val dur = mediaController?.duration ?: 1
-                _playerState.value = _playerState.value.copy(currentSongDuration = dur, currentTime = pos)
+                _playerState.value =
+                    _playerState.value.copy(currentSongDuration = dur, currentTime = pos)
                 delay(1000L.milliseconds)
             }
         }
@@ -157,7 +158,14 @@ object MusicServiceConnection {
     fun stop() = mediaController?.stop()
     fun skipToNext() = mediaController?.seekToNext()
     fun skipToPrevious() = mediaController?.seekToPrevious()
-    fun seekTo(position: Long) = mediaController?.seekTo(position)
+    fun seekTo(position: Long) {
+        mediaController?.seekTo(position)
+        // Отправляем новые данные о позиции в активити
+        val pos = mediaController?.currentPosition ?: 0
+                val dur = mediaController?.duration ?: 1
+                _playerState.value =
+                    _playerState.value.copy(currentSongDuration = dur, currentTime = pos)
+    }
 
     fun addMediaItem(mediaItem: MediaItem) {
         mediaController?.addMediaItem(mediaItem)
@@ -205,29 +213,6 @@ object MusicServiceConnection {
         )
     }
 
-    /* suspend */ fun clearArtworkCache(): Nothing = TODO()
-
-    /*
-withContext(Dispatchers.IO) {
-
-    Log.d("MusicServiceConnection", "Clearing cached artworks...")
-    try {
-        val cacheDir = context.cacheDir
-        val artworkFiles = cacheDir.listFiles { _, name ->
-            name.startsWith("artwork_") && name.endsWith(".jpg")
-        }
-
-        artworkFiles?.forEach { file ->
-            if (file.exists()) {
-                file.delete()
-            }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-    Log.d("MusicServiceConnection", "Artworks cleaned!")
-}
-*/
     fun getDuration() = mediaController?.duration ?: 0
     fun toggleShuffle() {
         val mode = playerState.value.isShuffleEnabled

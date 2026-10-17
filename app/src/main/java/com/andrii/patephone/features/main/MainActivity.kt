@@ -59,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,11 +84,13 @@ import com.andrii.patephone.core.player.PlayerAction
 import com.andrii.patephone.core.ui.theme.ApplicationTheme
 import com.andrii.patephone.features.settings.SettingsActivity
 import com.andrii.patephone.features.settings.SettingsManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.milliseconds
 import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
 
 val showTimeAboveSlider = MutableStateFlow(false)
@@ -505,6 +508,7 @@ fun Slider(onAction: (Float) -> Unit, songDuration: Long, currentTime: Long) {
     if (showTimeAboveSlider) {
         SliderTime(songDuration, currentTime)
     }
+    val scope = rememberCoroutineScope()
 
     WavySlider3(
         value = displayValue,
@@ -513,8 +517,11 @@ fun Slider(onAction: (Float) -> Unit, songDuration: Long, currentTime: Long) {
             dragValue = it
         },
         onValueChangeFinished = {
-            isDragging = false
-            onAction(dragValue)
+            scope.launch  {
+                onAction(dragValue)
+                delay(1000.milliseconds)
+                isDragging = false
+            }
         },
         waveLength = 32.dp,
         waveHeight = 8.dp,
