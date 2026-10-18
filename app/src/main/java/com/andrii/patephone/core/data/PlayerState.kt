@@ -8,5 +8,6 @@ data class PlayerState(
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val currentSongIndex: Int = 0,
     val currentSongDuration: Long = 0, // Time in milliseconds
-    val currentTime: Long = 0
+    val currentTime: Long = 0,
+    val showTimeAboveSlider: Boolean = false
 )

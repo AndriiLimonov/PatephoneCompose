@@ -11,6 +11,7 @@ import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingSimpleBasePlayer
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -18,11 +19,11 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.andrii.patephone.core.player.MusicServiceConnection
 import com.andrii.patephone.core.NOTIFICATION_CHANNEL_ID
 import com.andrii.patephone.features.main.MainActivity
+import com.google.common.util.concurrent.ListenableFuture
 
-class UpdatedService : MediaSessionService() {
+class SessionService : MediaSessionService() {
     val className = "Updated service"
     private var mediaSession: MediaSession? = null
 
@@ -73,6 +74,7 @@ class UpdatedService : MediaSessionService() {
             }
         })
 
+
         // Session activity intent
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -85,7 +87,23 @@ class UpdatedService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        mediaSession = MediaSession.Builder(this, player)
+        val customPlayer =
+            object : ForwardingSimpleBasePlayer(player) {
+
+                override fun handleSeek(
+                    mediaItemIndex: Int,
+                    positionMs: Long,
+                    seekCommand: Int
+                ): ListenableFuture<*> {
+                    Log.d(className, "Handle seek caught")
+                    if (seekCommand == COMMAND_SEEK_TO_MEDIA_ITEM && player.shuffleModeEnabled) {
+                        val count = player.mediaItemCount
+                        player.shuffleOrder = BetterShuffleOrder(count, mediaItemIndex)
+                    }
+                    return super.handleSeek(mediaItemIndex, positionMs, seekCommand)
+                }
+            }
+        mediaSession = MediaSession.Builder(this, customPlayer)
             .setSessionActivity(pendingIntent)
             .build()
 

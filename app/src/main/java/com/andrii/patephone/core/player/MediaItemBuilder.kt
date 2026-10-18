@@ -53,34 +53,6 @@ class MediaItemBuilder(
             .build()
     }
 
-    fun build(file: DocumentFile): MediaItem {
-        if (retriever == null) throw NullPointerException("Do not use build() if retriever is null")
-        val uri = file.uri
-        return try {
-            retriever.setDataSource(context, uri)
-
-            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-            val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
-//            val artwork = tryToCacheArtwork(uri)
-            val artwork = null
-            val fallbackName = file.name ?: "Unknown"
-
-            MediaItem.Builder()
-                .setMediaId(mediaID)
-                .setUri(uri)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(title ?: fallbackName)
-                        .setArtist(artist ?: fallbackName)
-                        .setArtworkUri(artwork ?: customArtwork)
-                        .build()
-                )
-                .build()
-        } catch (_: Exception) {
-            MediaItem.fromUri(uri)
-        }
-    }
-
     private fun tryToCacheArtwork(): Uri? {
         if (retriever == null) throw NullPointerException("Do not use TryToCacheArtwork() if retriever is null")
         val cacheDir = context.cacheDir

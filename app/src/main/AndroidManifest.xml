@@ -49,7 +49,7 @@
         </activity>
 
         <service
-            android:name=".core.player.UpdatedService"
+            android:name=".core.player.SessionService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>

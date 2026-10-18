@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
@@ -85,7 +84,6 @@ import com.andrii.patephone.core.ui.theme.ApplicationTheme
 import com.andrii.patephone.features.settings.SettingsActivity
 import com.andrii.patephone.features.settings.SettingsManager
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -93,11 +91,11 @@ import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
 
-val showTimeAboveSlider = MutableStateFlow(false)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setShowTimeAboveSlider()
         enableEdgeToEdge()
         setContent {
             ApplicationTheme {
@@ -137,14 +135,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        lifecycleScope.launch {
-            showTimeAboveSlider.value =
-                SettingsManager(applicationContext).showTimeAboveSlider.first()
-        }
+        setShowTimeAboveSlider()
         MusicServiceConnection.lazyEnrichment(this.applicationContext)
         MusicServiceConnection.startTracking()
     }
 
+    fun setShowTimeAboveSlider() {
+        lifecycleScope.launch {
+            MusicServiceConnection.toggleShowTimeAboveSlider(SettingsManager(applicationContext).showTimeAboveSlider.first())
+        }
+    }
     fun openSettings(context: Context) {
         val intent = Intent(context, SettingsActivity::class.java)
         startActivity(intent)
@@ -199,7 +199,8 @@ fun MainHorizontalContent(
             Slider(
                 onAction = { float -> viewModel.onSliderMove(float) },
                 currentTime = playerState.currentTime,
-                songDuration = playerState.currentSongDuration
+                songDuration = playerState.currentSongDuration,
+                showTimeAboveSlider = playerState.showTimeAboveSlider
             )
             ButtonRow(
                 onAction = { action -> viewModel.onAction(action) },
@@ -265,7 +266,7 @@ fun VerticalPreview() {
             )
             {
                 ArtworkFrame(onActionImport = {}, null, "some artist")
-                Slider({}, 0, 0)
+                Slider({}, 0, 0, false)
                 ButtonRow(
                     {},
                     isPlaying = false,
@@ -285,7 +286,6 @@ fun MainContent(
     onSettingsPressed: () -> Unit,
     viewModel: MainViewModel = viewModel()
 ) {
-    showTimeAboveSlider.value = viewModel.getShowTimeAboveSlider()
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
@@ -309,7 +309,8 @@ fun MainContent(
         Slider(
             onAction = { float -> viewModel.onSliderMove(float) },
             songDuration = playerState.currentSongDuration,
-            currentTime = playerState.currentTime
+            currentTime = playerState.currentTime,
+            showTimeAboveSlider = playerState.showTimeAboveSlider
         )
         ButtonRow(
             onAction = { action -> viewModel.onAction(action) },
@@ -417,7 +418,7 @@ fun Playlist(
                     color = if (index == currentSongIndex) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground
                 )
             } else {
-                Text (
+                Text(
                     fontStyle = FontStyle.Italic,
                     fontWeight = FontWeight.Bold,
                     text = playlistItem.value
@@ -497,14 +498,17 @@ fun convertTime(millis: Long): String {
 }
 
 @Composable
-fun Slider(onAction: (Float) -> Unit, songDuration: Long, currentTime: Long) {
+fun Slider(
+    onAction: (Float) -> Unit,
+    songDuration: Long,
+    currentTime: Long,
+    showTimeAboveSlider: Boolean
+) {
     val progress: Float =
         if (currentTime > 0f) currentTime.toFloat() / songDuration.toFloat() else 0f
     var isDragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(progress) }
     val displayValue = if (isDragging) dragValue else progress
-    val showTimeAboveSlider = showTimeAboveSlider.value
-
     if (showTimeAboveSlider) {
         SliderTime(songDuration, currentTime)
     }
@@ -517,7 +521,7 @@ fun Slider(onAction: (Float) -> Unit, songDuration: Long, currentTime: Long) {
             dragValue = it
         },
         onValueChangeFinished = {
-            scope.launch  {
+            scope.launch {
                 onAction(dragValue)
                 delay(1000.milliseconds)
                 isDragging = false

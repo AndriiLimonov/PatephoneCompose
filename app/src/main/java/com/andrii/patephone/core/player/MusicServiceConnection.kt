@@ -43,7 +43,7 @@ object MusicServiceConnection {
     private var mediaController: MediaController? = null
 
     private fun startService(context: Context) {
-        val intent = Intent(context, UpdatedService::class.java)
+        val intent = Intent(context, SessionService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent)
         } else {
@@ -68,7 +68,7 @@ object MusicServiceConnection {
         startService(appContext)
 
         val sessionToken =
-            SessionToken(appContext, ComponentName(appContext, UpdatedService::class.java))
+            SessionToken(appContext, ComponentName(appContext, SessionService::class.java))
         val controllerFuture = MediaController.Builder(appContext, sessionToken).buildAsync()
 
         controllerFuture.addListener({
@@ -127,14 +127,14 @@ object MusicServiceConnection {
             artworkUri = mediaItem?.mediaMetadata?.artworkUri
         )
         val oldState = _playerState.value
-        _playerState.value = PlayerState(
-            isPlaying = oldState.isPlaying,
-            isShuffleEnabled = oldState.isShuffleEnabled,
-            currentSongDuration = oldState.currentSongDuration,
-            currentTime = oldState.currentTime,
-            repeatMode = oldState.repeatMode,
+        _playerState.value = oldState.copy(
             currentSongIndex = mediaController?.currentMediaItemIndex ?: 0
         )
+    }
+
+    fun toggleShowTimeAboveSlider(value: Boolean) {
+        val state = _playerState.value
+        _playerState.value = state.copy(showTimeAboveSlider = value)
     }
 
     private var job: Job? = null
@@ -158,13 +158,14 @@ object MusicServiceConnection {
     fun stop() = mediaController?.stop()
     fun skipToNext() = mediaController?.seekToNext()
     fun skipToPrevious() = mediaController?.seekToPrevious()
+    fun seekToMediaItem(index: Int) = mediaController?.seekTo(index, 0)
     fun seekTo(position: Long) {
         mediaController?.seekTo(position)
         // Отправляем новые данные о позиции в активити
         val pos = mediaController?.currentPosition ?: 0
-                val dur = mediaController?.duration ?: 1
-                _playerState.value =
-                    _playerState.value.copy(currentSongDuration = dur, currentTime = pos)
+        val dur = mediaController?.duration ?: 1
+        _playerState.value =
+            _playerState.value.copy(currentSongDuration = dur, currentTime = pos)
     }
 
     fun addMediaItem(mediaItem: MediaItem) {
@@ -173,15 +174,6 @@ object MusicServiceConnection {
 
     fun getMediaItemCount(): Int {
         return mediaController?.mediaItemCount ?: 0
-    }
-
-    fun seekToMediaItem(index: Int) {
-        // We just toggle shuffle off and back if it was on to trigger onShuffleModeChanged listener placed in UpdatedService: 69
-        if (mediaController?.shuffleModeEnabled == true) {
-            mediaController?.shuffleModeEnabled = false
-            mediaController?.shuffleModeEnabled = true
-        }
-        mediaController?.seekTo(index, 0)
     }
 
     fun addMediaItems(arr: ArrayList<MediaItem>) {
