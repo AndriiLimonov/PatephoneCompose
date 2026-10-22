@@ -87,7 +87,8 @@ object MusicServiceConnection {
                     super.onMediaItemTransition(mediaItem, reason)
                     Log.d("MusicServiceConnection", "Media item transition")
 
-                    if (mediaItem?.mediaMetadata?.title == null) {
+                    if (mediaItem?.mediaMetadata?.extras?.getBoolean("is_enriched", false) != true) {
+                        Log.d(className, "Enriching media item...")
                         lazyEnrichment(appContext)
                     }
 
@@ -177,7 +178,7 @@ object MusicServiceConnection {
     }
 
     fun addMediaItems(arr: ArrayList<MediaItem>) {
-        mediaController?.addMediaItems(arr)
+        mediaController?.setMediaItems(arr, false)
         Log.d(this::class.simpleName, "media items added: ${arr.size}")
     }
 

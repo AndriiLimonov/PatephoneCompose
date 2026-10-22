@@ -83,8 +83,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         MusicServiceConnection.customArtwork = null
 
         viewModelScope.launch(Dispatchers.IO) {
+            Log.d(className, "Getting recursive import property")
             val recursiveImport: Boolean = SettingsManager(context).recursiveImport.first()
             // this method returns pair, where first value is MediaItem arraylist, and second value is it's names typed array
+            Log.i(className, "Starting import...")
             val fileDataPairs = listAudioFiles(
                 treeUri = treeUri,
                 context = context,
@@ -93,6 +95,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             val playlist = fileDataPairs.first
             viewModelScope.launch(Dispatchers.Main) {
+                Log.i(className, "Import successfully completed! Adding files to playlist in main thread...")
                 MusicServiceConnection.addMediaItems(playlist)
                 _playlist.value = fileDataPairs.second
                 val fallbacks = MusicServiceConnection.fallbackPictures
@@ -154,6 +157,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             index = currentIndex++
                         )
                     )
+                    Log.d(className, "Added song: ${names.last().value}")
                 } else if (file.isDirectory && currentDepth < recursiveImportDepth) {
                     val files = withContext(Dispatchers.IO) {
                         listAudioFiles(

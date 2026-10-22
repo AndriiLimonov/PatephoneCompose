@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Bundle
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
@@ -84,12 +85,16 @@ class MediaItemBuilder(
             retriever.setDataSource(context, mediaItem.localConfiguration?.uri)
             Log.d(className, "uri found")
 
-            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-            val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle
+            val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: mediaItem.mediaMetadata.artist
             val artwork = if (!seekArtwork) {
                 Log.d(className, "seekArtwork = false")
                 null
-            } else tryToCacheArtwork()
+            } else try {
+                tryToCacheArtwork()
+            } catch (_: Exception) {
+                null
+            }
 
             Log.d(className, "$title, $artwork, $artist")
             mediaItem.buildUpon()
@@ -116,6 +121,7 @@ class MediaItemBuilder(
                                 name ?: title
                             }
                         )
+                        .setExtras(Bundle().apply { putBoolean("is_enriched", true) })
                         .build()
                 )
                 .build()
