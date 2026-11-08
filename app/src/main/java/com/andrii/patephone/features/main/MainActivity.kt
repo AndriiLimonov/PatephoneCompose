@@ -69,15 +69,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.window.core.layout.WindowSizeClass
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import com.andrii.patephone.core.data.PlaylistItem
+import com.andrii.patephone.core.player.MediaItemBuilder
 import com.andrii.patephone.core.player.MusicServiceConnection
 import com.andrii.patephone.core.player.PlayerAction
 import com.andrii.patephone.core.ui.theme.ApplicationTheme
@@ -97,6 +100,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setShowTimeAboveSlider()
         enableEdgeToEdge()
+        handleIntent(intent)
         setContent {
             ApplicationTheme {
                 Scaffold { innerPadding ->
@@ -123,6 +127,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+
+        val action = intent.action
+        val type = intent.type
+
+        if (Intent.ACTION_VIEW == action && type != null) {
+            val fileUri: Uri? = intent.data
+            if (fileUri != null) {
+                val file =
+                    DocumentFile.fromSingleUri(this, fileUri) ?: return
+                MusicServiceConnection.addMediaItem(
+                    MediaItemBuilder(
+                        context = this.applicationContext,
+                        mediaID = fileUri.hashCode().toString()
+                    ).freshBuild(file)
+                )
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         MusicServiceConnection.onDestroy()
@@ -145,6 +170,7 @@ class MainActivity : ComponentActivity() {
             MusicServiceConnection.toggleShowTimeAboveSlider(SettingsManager(applicationContext).showTimeAboveSlider.first())
         }
     }
+
     fun openSettings(context: Context) {
         val intent = Intent(context, SettingsActivity::class.java)
         startActivity(intent)
