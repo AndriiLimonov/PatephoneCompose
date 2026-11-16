@@ -95,7 +95,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             val playlist = fileDataPairs.first
             viewModelScope.launch(Dispatchers.Main) {
-                Log.i(className, "Import successfully completed! Adding files to playlist in main thread...")
+                Log.i(
+                    className,
+                    "Import successfully completed! Adding files to playlist in main thread..."
+                )
                 MusicServiceConnection.addMediaItems(playlist)
                 _playlist.value = fileDataPairs.second
                 val fallbacks = MusicServiceConnection.fallbackPictures

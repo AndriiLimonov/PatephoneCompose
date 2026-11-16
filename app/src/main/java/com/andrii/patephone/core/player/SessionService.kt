@@ -153,7 +153,6 @@ class SessionService : MediaSessionService() {
         super.onDestroy()
     }
 
-
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.d("Updated Service", "Closing...")
         mediaSession?.player?.stop()
@@ -163,6 +162,7 @@ class SessionService : MediaSessionService() {
         stopSelf()
 
         Handler(Looper.getMainLooper()).postDelayed({
+            Log.d(className, "Killing process...")
             Process.killProcess(Process.myPid())
         }, 300)
     }

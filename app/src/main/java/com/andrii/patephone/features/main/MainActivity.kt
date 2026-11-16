@@ -73,7 +73,6 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.window.core.layout.WindowSizeClass
 import coil.compose.AsyncImagePainter
@@ -86,6 +85,8 @@ import com.andrii.patephone.core.player.PlayerAction
 import com.andrii.patephone.core.ui.theme.ApplicationTheme
 import com.andrii.patephone.features.settings.SettingsActivity
 import com.andrii.patephone.features.settings.SettingsManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -93,7 +94,6 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
-
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -127,6 +127,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        MusicServiceConnection.updateController(this)
+    }
+
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
 
@@ -138,19 +143,24 @@ class MainActivity : ComponentActivity() {
             if (fileUri != null) {
                 val file =
                     DocumentFile.fromSingleUri(this, fileUri) ?: return
-                MusicServiceConnection.addMediaItem(
-                    MediaItemBuilder(
-                        context = this.applicationContext,
-                        mediaID = fileUri.hashCode().toString()
-                    ).freshBuild(file)
-                )
+                val context = this.applicationContext
+                MusicServiceConnection.clearMediaItems()
+                MusicServiceConnection.clearArtworks()
+                CoroutineScope(Dispatchers.Main).launch {
+                    MusicServiceConnection.handleItem(
+                        MediaItemBuilder(
+                            context = context,
+                            mediaID = fileUri.hashCode().toString()
+                        ).freshBuild(file)
+                    )
+                }
             }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        MusicServiceConnection.onDestroy()
+        if (isFinishing) MusicServiceConnection.onDestroy()
     }
 
     override fun onPause() {

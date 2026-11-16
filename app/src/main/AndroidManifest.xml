@@ -23,6 +23,7 @@
         <activity android:name=".features.settings.SettingsActivity"
             android:label="Patephone settings"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.MyApplication"/>
         <activity
             android:name=".features.main.MainActivity"

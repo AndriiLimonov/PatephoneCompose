@@ -17,6 +17,7 @@ import com.andrii.patephone.core.data.Song
 import com.andrii.patephone.features.settings.SettingsManager
 import com.andrii.patephone.features.settings.SettingsManager.NotificationHeader
 import com.google.common.util.concurrent.MoreExecutors
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,15 +32,15 @@ import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration.Companion.milliseconds
 
 object MusicServiceConnection {
-    val fallbackPictures = mutableListOf<DocumentFile>()
+    val fallbackPictures by lazy { mutableListOf<DocumentFile>() }
+    val UNSUPPORTED_TYPES by lazy { arrayOf("m3u") }
     val className: String = this::class.java.simpleName
-    val UNSUPPORTED_TYPES = arrayOf("m3u")
     var customArtwork: Uri? = null
     private val _song = MutableStateFlow(Song())
     private val _playerState = MutableStateFlow(PlayerState())
     val song = _song.asStateFlow()
     val playerState = _playerState.asStateFlow()
-
+    private var controllerStarted = false
     private var mediaController: MediaController? = null
 
     private fun startService(context: Context) {
@@ -49,6 +50,30 @@ object MusicServiceConnection {
         } else {
             context.startService(intent)
         }
+    }
+
+    fun getIsControllerStarted() = controllerStarted
+
+    fun clearArtworks() {
+        customArtwork = null
+        fallbackPictures.clear()
+    }
+
+    private val controllerStartedDeferred = CompletableDeferred<Unit>()
+
+    fun onControllerStarted() {
+        controllerStartedDeferred.complete(Unit)
+        controllerStarted = true
+    }
+
+    suspend fun handleItem(item: MediaItem) {
+        controllerStartedDeferred.await()
+
+        addMediaItem(item)
+        Log.d(
+            className,
+            "Intent handled! ${item.mediaId}"
+        )
     }
 
     private suspend fun getNotificationHeader(context: Context): NotificationHeader {
@@ -66,13 +91,23 @@ object MusicServiceConnection {
     fun init(context: Context) {
         val appContext = context.applicationContext
         startService(appContext)
+        updateController(context)
 
+        Log.d(
+            className,
+            "Init complete!"
+        )
+    }
+
+    fun updateController(context: Context) {
+        val appContext = context.applicationContext
         val sessionToken =
             SessionToken(appContext, ComponentName(appContext, SessionService::class.java))
         val controllerFuture = MediaController.Builder(appContext, sessionToken).buildAsync()
 
         controllerFuture.addListener({
             mediaController = controllerFuture.get()
+            controllerStartedDeferred.complete(Unit)
             // Listener
             mediaController?.addListener(object : Player.Listener {
                 override fun onEvents(player: Player, events: Player.Events) {
@@ -87,12 +122,14 @@ object MusicServiceConnection {
                     super.onMediaItemTransition(mediaItem, reason)
                     Log.d("MusicServiceConnection", "Media item transition")
 
-                    if (mediaItem?.mediaMetadata?.extras?.getBoolean("is_enriched", false) != true) {
+                    if (mediaItem?.mediaMetadata?.extras?.getBoolean(
+                            "is_enriched",
+                            false
+                        ) != true
+                    ) {
                         Log.d(className, "Enriching media item...")
                         lazyEnrichment(appContext)
                     }
-
-
                     updateUI(mediaController?.currentMediaItem)
                 }
             })
@@ -170,7 +207,10 @@ object MusicServiceConnection {
     }
 
     fun addMediaItem(mediaItem: MediaItem) {
-        mediaController?.addMediaItem(mediaItem)
+        mediaController?.addMediaItem(mediaItem) ?: Log.d(
+            className,
+            "Adding mediaItem while mediaController is null"
+        )
     }
 
     fun getMediaItemCount(): Int {
@@ -191,13 +231,17 @@ object MusicServiceConnection {
     }
 
     fun onDestroy() {
+        Log.d(
+            className,
+            "onDestroy() started"
+        )
         job?.cancel()
         scope.cancel()
         returnToDefaults()
 
         mediaController?.release()
         mediaController = null
-        Log.d("MusicServiceConnection", "Singleton manager destroyed")
+        Log.d(className, "onDestroy() finished")
     }
 
     private fun returnToDefaults() {
