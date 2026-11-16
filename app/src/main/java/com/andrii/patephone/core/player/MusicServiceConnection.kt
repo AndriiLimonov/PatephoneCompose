@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
 object MusicServiceConnection {
@@ -99,6 +100,13 @@ object MusicServiceConnection {
         )
     }
 
+    fun shuffleAll() {
+        if (mediaController == null || mediaController?.mediaItemCount == 0) return
+        val randomIndex = Random.nextInt(mediaController!!.mediaItemCount)
+        seekToMediaItem(randomIndex)
+        mediaController?.shuffleModeEnabled = true
+        play()
+    }
     fun updateController(context: Context) {
         val appContext = context.applicationContext
         val sessionToken =

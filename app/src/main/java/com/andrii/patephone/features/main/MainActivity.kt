@@ -365,16 +365,7 @@ fun MainContent(
             sheetState = sheetState
         ) {
             Column {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(90.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Button(onClick = { onSettingsPressed() }) {
-                        Icon(Icons.Default.Settings, null)
-                    }
-                }
+                PlaylistButtonRow(onSettingsPressed) { MusicServiceConnection.shuffleAll() }
                 if (playlist.isNotEmpty()) {
                     Playlist(
                         playlist,
@@ -388,6 +379,23 @@ fun MainContent(
     }
 }
 
+@Composable
+fun PlaylistButtonRow(onSettingsPressed: () -> Unit, onShuffleAllPressed: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(90.dp),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Button(onClick = onSettingsPressed) {
+            Icon(Icons.Default.Settings, null)
+        }
+        Spacer(Modifier.size(8.dp))
+        Button(onClick = onShuffleAllPressed) {
+            Icon(Icons.Default.Shuffle, null)
+        }
+    }
+}
 
 @Composable
 fun TextUnderArtwork(onActionImport: (Uri?) -> Unit, artist: String) {
