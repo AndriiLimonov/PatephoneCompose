@@ -119,8 +119,7 @@ app/src/main/java/com/andrii/patephone/
 ## 🚧 Roadmap
 
 - [ ] **Favorites** — save and manage your favorite tracks
-- [ ] **Recursive import** — scan subdirectories for music
-- [ ] **Now Playing screen** — full-screen artwork experience
+- [x] **Recursive import** — scan subdirectories for music
 - [ ] **Search** — find tracks by title or artist
 - [ ] **Playlists** — create, edit, and organize
 
