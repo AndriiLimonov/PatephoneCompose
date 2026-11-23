@@ -85,8 +85,10 @@ class MediaItemBuilder(
             retriever.setDataSource(context, mediaItem.localConfiguration?.uri)
             Log.d(className, "uri found")
 
-            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle
-            val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: mediaItem.mediaMetadata.artist
+            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                ?: mediaItem.mediaMetadata.title ?: mediaItem.mediaMetadata.displayTitle
+            val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                ?: mediaItem.mediaMetadata.artist
             val artwork = if (!seekArtwork) {
                 Log.d(className, "seekArtwork = false")
                 null

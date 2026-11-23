@@ -45,7 +45,8 @@ class SettingsManager(private val androidContext: Context) {
     }
     val notificationHeader: Flow<NotificationHeader> by lazy {
         androidContext.dataStore.data.map { preferences ->
-            preferences[NOTIFICATION_HEADER_KEY]?.let { NotificationHeader.entries[it] } ?: NotificationHeader.FileName
+            preferences[NOTIFICATION_HEADER_KEY]?.let { NotificationHeader.entries[it] }
+                ?: NotificationHeader.FileName
         }
     }
     val showTimeAboveSlider: Flow<Boolean> by lazy {

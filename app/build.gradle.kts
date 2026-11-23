@@ -6,11 +6,9 @@ plugins {
 android {
     namespace = "com.andrii.patephone"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
-     signingConfigs {
+    signingConfigs {
         create("release") {
             val envPassword = System.getenv("SIGNING_STORE_PASSWORD")
 
@@ -26,8 +24,8 @@ android {
                 keyAlias = debugConfig.keyAlias
                 keyPassword = debugConfig.keyPassword
             }
-	}
-	}
+        }
+    }
     defaultConfig {
         applicationId = "com.andrii.patephone"
         minSdk = 24
@@ -78,4 +76,5 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    debugImplementation(libs.androidx.compose.ui.tooling)
 }

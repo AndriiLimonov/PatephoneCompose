@@ -264,27 +264,84 @@ fun MainHorizontalContent(
     }
 }
 
-/*
-@Preview(showBackground = true)
+@Preview(
+    showBackground = true,
+    widthDp = 1050,
+    heightDp = 640
+)
 @Composable
-fun HorizontalContent() {
+fun HorizontalPreview() {
     ApplicationTheme {
-        Surface(
-            modifier = Modifier.size(1000.dp, 860.dp)
-        ) {
-            MainHorizontalContent(
-                modifier = Modifier,
-                onSettingsPressed = {}
-            )
+        Scaffold { innerPadding ->
+            Row(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .padding(32.dp, 72.dp, 32.dp, 72.dp)
+                    .fillMaxSize(),
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxSize(0.5f)
+                ) {
+                    ArtworkFrame(
+                        onActionImport = {},
+                        null,
+                        "Loxxxxx671"
+                    )
+
+                    TitleFrame("DJ Loxxxxx", onClick = {})
+                }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Slider(
+                        onAction = {},
+                        currentTime = 200000,
+                        songDuration = 400000,
+                        showTimeAboveSlider = true
+                    )
+                    ButtonRow(
+                        onAction = {},
+                        isPlaying = false,
+                        isShuffleEnabled = true,
+                        repeatMode = 0
+                    )
+                    Column(
+                        modifier = Modifier.background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            RoundedCornerShape(20.dp)
+                        )
+                    ) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(90.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            PlaylistButtonRow(
+                                onSettingsPressed = {},
+                                onShuffleAllPressed = {}
+                            )
+                        }
+                        Playlist(
+                            arrayOf(PlaylistItem.SongItem(0, "asdfasdf")),
+                            {},
+                            2
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
-*/
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(
     showBackground = true,
-    widthDp = 840,
-    heightDp = 450
+    widthDp = 450,
+    heightDp = 840
 )
 @Composable
 fun VerticalPreview() {
@@ -293,6 +350,7 @@ fun VerticalPreview() {
             modifier = Modifier
                 .fillMaxSize()
         ) {
+            var showBottomSheet by remember { mutableStateOf(false) }
             Column(
                 modifier = Modifier
                     .padding(32.dp, 72.dp, 32.dp, 72.dp)
@@ -309,7 +367,21 @@ fun VerticalPreview() {
                     isShuffleEnabled = true,
                     repeatMode = 0
                 )
-                TitleFrame("Nothing") {}
+                TitleFrame("Nothing") { showBottomSheet = true }
+                if (showBottomSheet) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showBottomSheet = false },
+                    ) {
+                        Column {
+                            PlaylistButtonRow({}) { MusicServiceConnection.shuffleAll() }
+                            Playlist(
+                                arrayOf(PlaylistItem.SongItem(0, "ashdfahsdfjhas")),
+                                {},
+                                0
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -479,7 +551,7 @@ fun ArtworkFrame(onActionImport: (Uri?) -> Unit, artworkUri: Uri?, artist: Strin
         Modifier
             .padding(24.dp, 24.dp, 24.dp, 0.dp)
             .aspectRatio(1f)
-            .fillMaxWidth()
+            .fillMaxSize()
             .background(
                 MaterialTheme.colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(32.dp)
@@ -626,13 +698,6 @@ fun ButtonRow(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom
         ) {
-//            IconButton({ onAction(PlayerAction.AddToFavs) }) {
-//                Icon(
-//                    if (isInFavorites) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-//                    null,
-//                    tint = MaterialTheme.colorScheme.primary
-//                )
-//            }
             //Shuffle
             Button(
                 onClick = {

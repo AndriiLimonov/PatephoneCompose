@@ -5,8 +5,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
-    <attribution android:tag="media3_playback" android:label="@string/playback_attribution_label" />
-    <attribution android:tag="media" android:label="@string/playback_attribution_label" />
+    <attribution
+        android:tag="media3_playback"
+        android:label="@string/playback_attribution_label" />
+    <attribution
+        android:tag="media"
+        android:label="@string/playback_attribution_label" />
 
     <application
         android:name=".core.App"
@@ -20,11 +24,12 @@
         android:launchMode="singleTop"
         android:theme="@style/Theme.MyApplication">
 
-        <activity android:name=".features.settings.SettingsActivity"
+        <activity
+            android:name=".features.settings.SettingsActivity"
             android:label="Patephone settings"
             android:exported="true"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.MyApplication"/>
+            android:theme="@style/Theme.MyApplication" />
         <activity
             android:name=".features.main.MainActivity"
             android:exported="true"
@@ -53,7 +58,7 @@
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
-<!--                <action android:name="android.media.browse.MediaBrowserService" />-->
+                <!--                <action android:name="android.media.browse.MediaBrowserService" />-->
             </intent-filter>
         </service>
     </application>

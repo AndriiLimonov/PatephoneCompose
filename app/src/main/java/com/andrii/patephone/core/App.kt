@@ -23,6 +23,6 @@ class App : Application() {
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }
-        if (!MusicServiceConnection.getIsControllerStarted() ) MusicServiceConnection.init(this.applicationContext)
+        if (!MusicServiceConnection.getIsControllerStarted()) MusicServiceConnection.init(this.applicationContext)
     }
 }

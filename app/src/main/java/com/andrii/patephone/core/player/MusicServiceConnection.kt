@@ -107,6 +107,7 @@ object MusicServiceConnection {
         mediaController?.shuffleModeEnabled = true
         play()
     }
+
     fun updateController(context: Context) {
         val appContext = context.applicationContext
         val sessionToken =

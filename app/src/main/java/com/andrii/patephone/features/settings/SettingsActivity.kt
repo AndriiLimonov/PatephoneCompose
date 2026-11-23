@@ -184,7 +184,11 @@ class SettingsActivity : ComponentActivity() {
                                 trailingContent = {
                                     Switch(
                                         checked = showTimeAboveSlider,
-                                        onCheckedChange = { settingsManager.setShowTimeAboveSlider(it) }
+                                        onCheckedChange = {
+                                            settingsManager.setShowTimeAboveSlider(
+                                                it
+                                            )
+                                        }
                                     )
                                 }
                             )
