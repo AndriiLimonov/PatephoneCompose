@@ -1,15 +1,15 @@
-package com.andrii.patephone.Main
+package com.andrii.patephone.core
 
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
-import com.andrii.patephone.action.MusicServiceConnection
+import com.andrii.patephone.core.player.MusicServiceConnection
 
 const val NOTIFICATION_CHANNEL_ID = "Patephone_music_channel"
 const val TAG_VIEW_MODEL = "MainViewModel"
 
-class App: Application() {
+class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
@@ -23,6 +23,6 @@ class App: Application() {
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }
-        MusicServiceConnection.init(this)
+        if (!MusicServiceConnection.getIsControllerStarted()) MusicServiceConnection.init(this.applicationContext)
     }
 }

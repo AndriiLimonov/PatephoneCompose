@@ -6,28 +6,39 @@ plugins {
 android {
     namespace = "com.andrii.patephone"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
+        version = release(37)
+    }
+    signingConfigs {
+        create("release") {
+            val envPassword = System.getenv("SIGNING_STORE_PASSWORD")
+
+            if (!envPassword.isNullOrEmpty()) {
+                storeFile = file(System.getenv("SIGNING_STORE_FILE") ?: "my-release-key.jks")
+                storePassword = envPassword
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            } else {
+                val debugConfig = getByName("debug")
+                storeFile = debugConfig.storeFile
+                storePassword = debugConfig.storePassword
+                keyAlias = debugConfig.keyAlias
+                keyPassword = debugConfig.keyPassword
+            }
         }
     }
-
     defaultConfig {
         applicationId = "com.andrii.patephone"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "beta 0.3.3"
+        versionName = "0.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -56,6 +67,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.adaptive)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.media3.common.ktx)
     implementation(libs.androidx.media3.session)
@@ -64,4 +76,5 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    debugImplementation(libs.androidx.compose.ui.tooling)
 }

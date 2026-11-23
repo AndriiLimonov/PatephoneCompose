@@ -1,4 +1,4 @@
-package com.andrii.patephone.ui.theme
+package com.andrii.patephone.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

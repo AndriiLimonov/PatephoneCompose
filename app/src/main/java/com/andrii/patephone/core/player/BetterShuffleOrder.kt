@@ -1,4 +1,6 @@
-package com.andrii.patephone
+package com.andrii.patephone.core.player
+
+import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.source.ShuffleOrder
 import java.util.Random
@@ -34,10 +36,14 @@ class BetterShuffleOrder(
 
     // Some methods i dont use
     override fun getLength(): Int = length
-    override fun getNextIndex(index: Int): Int = if (indexInShuffled[index] + 1 < length) shuffledMap[indexInShuffled[index] + 1] else androidx.media3.common.C.INDEX_UNSET
-    override fun getPreviousIndex(index: Int): Int = if (indexInShuffled[index] - 1 >= 0) shuffledMap[indexInShuffled[index] - 1] else androidx.media3.common.C.INDEX_UNSET
-    override fun getLastIndex(): Int = if (length > 0) shuffledMap[length - 1] else androidx.media3.common.C.INDEX_UNSET
-    override fun getFirstIndex(): Int = if (length > 0) shuffledMap[0] else androidx.media3.common.C.INDEX_UNSET
+    override fun getNextIndex(index: Int): Int =
+        if (indexInShuffled[index] + 1 < length) shuffledMap[indexInShuffled[index] + 1] else C.INDEX_UNSET
+
+    override fun getPreviousIndex(index: Int): Int =
+        if (indexInShuffled[index] - 1 >= 0) shuffledMap[indexInShuffled[index] - 1] else C.INDEX_UNSET
+
+    override fun getLastIndex(): Int = if (length > 0) shuffledMap[length - 1] else C.INDEX_UNSET
+    override fun getFirstIndex(): Int = if (length > 0) shuffledMap[0] else C.INDEX_UNSET
 
     override fun cloneAndInsert(insertionIndex: Int, insertionCount: Int): ShuffleOrder {
         return BetterShuffleOrder(length + insertionCount, currentIdx, random)

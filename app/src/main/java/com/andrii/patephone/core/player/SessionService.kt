@@ -1,15 +1,17 @@
-package com.andrii.patephone
+package com.andrii.patephone.core.player
 
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingSimpleBasePlayer
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -17,11 +19,11 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.andrii.patephone.Main.MainActivity
-import com.andrii.patephone.Main.NOTIFICATION_CHANNEL_ID
-import com.andrii.patephone.action.MusicServiceConnection
+import com.andrii.patephone.core.NOTIFICATION_CHANNEL_ID
+import com.andrii.patephone.features.main.MainActivity
+import com.google.common.util.concurrent.ListenableFuture
 
-class UpdatedService : MediaSessionService() {
+class SessionService : MediaSessionService() {
     val className = "Updated service"
     private var mediaSession: MediaSession? = null
 
@@ -34,7 +36,6 @@ class UpdatedService : MediaSessionService() {
         val renderersFactory = DefaultRenderersFactory(this).apply {
             setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
         }
-
 
         val player = ExoPlayer.Builder(this, renderersFactory)
             // Buffering
@@ -51,6 +52,7 @@ class UpdatedService : MediaSessionService() {
                     .setPrioritizeTimeOverSizeThresholds(false)
                     .build()
             )
+            .setHandleAudioBecomingNoisy(true)
             .build()
 
         player.setAudioAttributes(
@@ -61,7 +63,7 @@ class UpdatedService : MediaSessionService() {
             true
         )
 
-        player.addListener(object: Player.Listener {
+        player.addListener(object : Player.Listener {
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
                 super.onShuffleModeEnabledChanged(shuffleModeEnabled)
                 if (shuffleModeEnabled) {
@@ -72,7 +74,8 @@ class UpdatedService : MediaSessionService() {
             }
         })
 
-            // Session activity intent
+
+        // Session activity intent
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
@@ -84,7 +87,23 @@ class UpdatedService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        mediaSession = MediaSession.Builder(this, player)
+        val customPlayer =
+            object : ForwardingSimpleBasePlayer(player) {
+
+                override fun handleSeek(
+                    mediaItemIndex: Int,
+                    positionMs: Long,
+                    seekCommand: Int
+                ): ListenableFuture<*> {
+                    Log.d(className, "Handle seek caught")
+                    if (seekCommand == COMMAND_SEEK_TO_MEDIA_ITEM && player.shuffleModeEnabled) {
+                        val count = player.mediaItemCount
+                        player.shuffleOrder = BetterShuffleOrder(count, mediaItemIndex)
+                    }
+                    return super.handleSeek(mediaItemIndex, positionMs, seekCommand)
+                }
+            }
+        mediaSession = MediaSession.Builder(this, customPlayer)
             .setSessionActivity(pendingIntent)
             .build()
 
@@ -99,7 +118,6 @@ class UpdatedService : MediaSessionService() {
             .setOngoing(true)
             .build()
     }
-
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         Log.d(className, "onGetSession called, returning: ${mediaSession != null}")
@@ -135,7 +153,6 @@ class UpdatedService : MediaSessionService() {
         super.onDestroy()
     }
 
-
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.d("Updated Service", "Closing...")
         mediaSession?.player?.stop()
@@ -145,7 +162,8 @@ class UpdatedService : MediaSessionService() {
         stopSelf()
 
         Handler(Looper.getMainLooper()).postDelayed({
-            android.os.Process.killProcess(android.os.Process.myPid())
+            Log.d(className, "Killing process...")
+            Process.killProcess(Process.myPid())
         }, 300)
     }
 }

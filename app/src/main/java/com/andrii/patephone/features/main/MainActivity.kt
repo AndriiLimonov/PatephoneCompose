@@ -1,0 +1,785 @@
+@file:Suppress("FunctionName")
+
+package com.andrii.patephone.features.main
+
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.net.Uri
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOn
+import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.ShuffleOn
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.documentfile.provider.DocumentFile
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.Player
+import androidx.window.core.layout.WindowSizeClass
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
+import com.andrii.patephone.core.data.PlaylistItem
+import com.andrii.patephone.core.player.MediaItemBuilder
+import com.andrii.patephone.core.player.MusicServiceConnection
+import com.andrii.patephone.core.player.PlayerAction
+import com.andrii.patephone.core.ui.theme.ApplicationTheme
+import com.andrii.patephone.features.settings.SettingsActivity
+import com.andrii.patephone.features.settings.SettingsManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.milliseconds
+import ir.mahozad.multiplatform.wavyslider.material3.WavySlider as WavySlider3
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setShowTimeAboveSlider()
+        enableEdgeToEdge()
+        handleIntent(intent)
+        setContent {
+            ApplicationTheme {
+                Scaffold { innerPadding ->
+                    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+                    val isSmartphone = isSmartphone(windowSizeClass)
+
+                    requestedOrientation =
+                        if (isSmartphone) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+
+
+                    if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)) {
+                        MainHorizontalContent(
+                            Modifier.padding(innerPadding),
+                            { openSettings(this) }
+                        )
+                    }
+                    MainContent(
+                        Modifier.padding(innerPadding),
+                        { openSettings(this) }
+                    )
+                }
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        MusicServiceConnection.updateController(this)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+
+        val action = intent.action
+        val type = intent.type
+
+        if (Intent.ACTION_VIEW == action && type != null) {
+            val fileUri: Uri? = intent.data
+            if (fileUri != null) {
+                val file =
+                    DocumentFile.fromSingleUri(this, fileUri) ?: return
+                val context = this.applicationContext
+                MusicServiceConnection.clearMediaItems()
+                MusicServiceConnection.clearArtworks()
+                CoroutineScope(Dispatchers.Main).launch {
+                    MusicServiceConnection.handleItem(
+                        MediaItemBuilder(
+                            context = context,
+                            mediaID = fileUri.hashCode().toString()
+                        ).freshBuild(file)
+                    )
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing) MusicServiceConnection.onDestroy()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        MusicServiceConnection.stopTracking()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        setShowTimeAboveSlider()
+        MusicServiceConnection.lazyEnrichment(this.applicationContext)
+        MusicServiceConnection.startTracking()
+    }
+
+    fun setShowTimeAboveSlider() {
+        lifecycleScope.launch {
+            MusicServiceConnection.toggleShowTimeAboveSlider(SettingsManager(applicationContext).showTimeAboveSlider.first())
+        }
+    }
+
+    fun openSettings(context: Context) {
+        val intent = Intent(context, SettingsActivity::class.java)
+        startActivity(intent)
+    }
+}
+
+@Composable
+fun isSmartphone(windowSizeClass: WindowSizeClass): Boolean {
+    val isCompactWidth =
+        !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+    val isCompactHeight =
+        !windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
+    return isCompactWidth || isCompactHeight
+}
+
+@Composable
+fun MainHorizontalContent(
+    modifier: Modifier,
+    onSettingsPressed: () -> Unit,
+    viewModel: MainViewModel = viewModel()
+) {
+    val playlist by viewModel.playlist.collectAsStateWithLifecycle()
+
+    val song = viewModel.song.collectAsStateWithLifecycle().value
+    val playerState = viewModel.playerState.collectAsStateWithLifecycle().value
+
+    Row(
+        modifier = modifier
+            .padding(32.dp, 72.dp, 32.dp, 72.dp)
+            .fillMaxSize(),
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            ArtworkFrame(
+                onActionImport = { uri ->
+                    viewModel.onActionImport(
+                        uri,
+                    )
+                },
+                song.artworkUri,
+                song.artist
+            )
+
+            TitleFrame(song.title, onClick = {})
+        }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Slider(
+                onAction = { float -> viewModel.onSliderMove(float) },
+                currentTime = playerState.currentTime,
+                songDuration = playerState.currentSongDuration,
+                showTimeAboveSlider = playerState.showTimeAboveSlider
+            )
+            ButtonRow(
+                onAction = { action -> viewModel.onAction(action) },
+                isPlaying = playerState.isPlaying,
+                isShuffleEnabled = playerState.isShuffleEnabled,
+                repeatMode = playerState.repeatMode
+            )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(90.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Button(onClick = { onSettingsPressed() }) {
+                    Icon(Icons.Default.Settings, null)
+                }
+            }
+            Playlist(
+                playlist,
+                { index ->
+                    viewModel.seekToMedia(index)
+                }, playerState.currentSongIndex
+            )
+        }
+    }
+}
+
+@Preview(
+    showBackground = true,
+    widthDp = 1050,
+    heightDp = 640
+)
+@Composable
+fun HorizontalPreview() {
+    ApplicationTheme {
+        Scaffold { innerPadding ->
+            Row(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .padding(32.dp, 72.dp, 32.dp, 72.dp)
+                    .fillMaxSize(),
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxSize(0.5f)
+                ) {
+                    ArtworkFrame(
+                        onActionImport = {},
+                        null,
+                        "Loxxxxx671"
+                    )
+
+                    TitleFrame("DJ Loxxxxx", onClick = {})
+                }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Slider(
+                        onAction = {},
+                        currentTime = 200000,
+                        songDuration = 400000,
+                        showTimeAboveSlider = true
+                    )
+                    ButtonRow(
+                        onAction = {},
+                        isPlaying = false,
+                        isShuffleEnabled = true,
+                        repeatMode = 0
+                    )
+                    Column(
+                        modifier = Modifier.background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            RoundedCornerShape(20.dp)
+                        )
+                    ) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(90.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            PlaylistButtonRow(
+                                onSettingsPressed = {},
+                                onShuffleAllPressed = {}
+                            )
+                        }
+                        Playlist(
+                            arrayOf(PlaylistItem.SongItem(0, "asdfasdf")),
+                            {},
+                            2
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(
+    showBackground = true,
+    widthDp = 450,
+    heightDp = 840
+)
+@Composable
+fun VerticalPreview() {
+    MaterialTheme {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            var showBottomSheet by remember { mutableStateOf(false) }
+            Column(
+                modifier = Modifier
+                    .padding(32.dp, 72.dp, 32.dp, 72.dp)
+                    .fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            )
+            {
+                ArtworkFrame(onActionImport = {}, null, "some artist")
+                Slider({}, 0, 0, false)
+                ButtonRow(
+                    {},
+                    isPlaying = false,
+                    isShuffleEnabled = true,
+                    repeatMode = 0
+                )
+                TitleFrame("Nothing") { showBottomSheet = true }
+                if (showBottomSheet) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showBottomSheet = false },
+                    ) {
+                        Column {
+                            PlaylistButtonRow({}) { MusicServiceConnection.shuffleAll() }
+                            Playlist(
+                                arrayOf(PlaylistItem.SongItem(0, "ashdfahsdfjhas")),
+                                {},
+                                0
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainContent(
+    modifier: Modifier,
+    onSettingsPressed: () -> Unit,
+    viewModel: MainViewModel = viewModel()
+) {
+    var showBottomSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+    val playlist by viewModel.playlist.collectAsStateWithLifecycle()
+
+    val song = viewModel.song.collectAsStateWithLifecycle().value
+    val playerState = viewModel.playerState.collectAsStateWithLifecycle().value
+
+    Column(
+        modifier = modifier
+            .padding(32.dp, 72.dp, 32.dp, 72.dp)
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
+    )
+    {
+        ArtworkFrame(
+            onActionImport = { uri -> viewModel.onActionImport(uri) },
+            song.artworkUri,
+            song.artist
+        )
+        Slider(
+            onAction = { float -> viewModel.onSliderMove(float) },
+            songDuration = playerState.currentSongDuration,
+            currentTime = playerState.currentTime,
+            showTimeAboveSlider = playerState.showTimeAboveSlider
+        )
+        ButtonRow(
+            onAction = { action -> viewModel.onAction(action) },
+            isPlaying = playerState.isPlaying,
+            isShuffleEnabled = playerState.isShuffleEnabled,
+            repeatMode = playerState.repeatMode
+        )
+        TitleFrame(song.title, onClick = {
+            showBottomSheet = true
+        })
+    }
+
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showBottomSheet = false },
+            sheetState = sheetState
+        ) {
+            Column {
+                PlaylistButtonRow(onSettingsPressed) { MusicServiceConnection.shuffleAll() }
+                if (playlist.isNotEmpty()) {
+                    Playlist(
+                        playlist,
+                        { index ->
+                            viewModel.seekToMedia(index)
+                        }, playerState.currentSongIndex
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PlaylistButtonRow(onSettingsPressed: () -> Unit, onShuffleAllPressed: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(90.dp),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Button(onClick = onSettingsPressed) {
+            Icon(Icons.Default.Settings, null)
+        }
+        Spacer(Modifier.size(8.dp))
+        Button(onClick = onShuffleAllPressed) {
+            Icon(Icons.Default.Shuffle, null)
+        }
+    }
+}
+
+@Composable
+fun TextUnderArtwork(onActionImport: (Uri?) -> Unit, artist: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(
+            artist,
+            Modifier
+                .weight(1f)
+                .padding(12.dp, 0.dp, 12.dp, 0.dp),
+            maxLines = 1
+        )
+        ImportButton(onActionImport)
+    }
+}
+
+@Composable
+fun ImportButton(onActionImport: (Uri?) -> Unit) {
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let { onActionImport(it) }
+    }
+    Text(
+        "Import",
+        fontWeight = FontWeight.Bold,
+        fontStyle = FontStyle.Italic,
+        modifier = Modifier.clickable {
+            launcher.launch(null)
+        })
+}
+
+@Composable
+fun Playlist(
+    playlist: Array<PlaylistItem>,
+    onAction: (index: Int) -> Unit,
+    currentSongIndex: Int
+) {
+    LazyColumn(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items(playlist) { playlistItem ->
+            if (playlistItem is PlaylistItem.SongItem) {
+                val index = playlistItem.index
+                Text(
+                    text = playlistItem.value,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .clickable {
+                            onAction(index)
+                        }
+                        .then(
+                            if (index == currentSongIndex) {
+                                Modifier
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(8.dp, 0.dp)
+                            } else {
+                                Modifier
+                            }
+                        ),
+                    color = if (index == currentSongIndex) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground
+                )
+            } else {
+                Text(
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.Bold,
+                    text = playlistItem.value
+                )
+            }
+            Spacer(Modifier.size(8.dp))
+        }
+    }
+}
+
+@Composable
+fun ArtworkFrame(onActionImport: (Uri?) -> Unit, artworkUri: Uri?, artist: String) {
+    Box(
+        Modifier
+            .padding(24.dp, 24.dp, 24.dp, 0.dp)
+            .aspectRatio(1f)
+            .fillMaxSize()
+            .background(
+                MaterialTheme.colorScheme.secondaryContainer,
+                shape = RoundedCornerShape(32.dp)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        SubcomposeAsyncImage(
+            model = artworkUri,
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(32.dp)),
+            contentScale = ContentScale.Crop
+        ) {
+            val state = painter.state
+            if (state is AsyncImagePainter.State.Loading || state is AsyncImagePainter.State.Error) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.BrokenImage,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            } else {
+                SubcomposeAsyncImageContent()
+            }
+        }
+    }
+    TextUnderArtwork(onActionImport, artist)
+}
+
+@Composable
+fun SliderTime(duration: Long, time: Long) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+    ) {
+        Text(
+            text = convertTime(time),
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = convertTime(duration),
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+fun convertTime(millis: Long): String {
+    val hours = TimeUnit.MILLISECONDS.toHours(millis)
+    val mins = TimeUnit.MILLISECONDS.toMinutes(millis) % 60
+    val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) % 60
+    if (seconds + mins + hours < 1) return "00:00"
+
+    return if (hours > 0) String.format(Locale.ROOT, "%02d:%02d:%02d", hours, mins, seconds)
+    else String.format(Locale.ROOT, "%02d:%02d", mins, seconds)
+}
+
+@Composable
+fun Slider(
+    onAction: (Float) -> Unit,
+    songDuration: Long,
+    currentTime: Long,
+    showTimeAboveSlider: Boolean
+) {
+    val progress: Float =
+        if (currentTime > 0f) currentTime.toFloat() / songDuration.toFloat() else 0f
+    var isDragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(progress) }
+    val displayValue = if (isDragging) dragValue else progress
+    if (showTimeAboveSlider) {
+        SliderTime(songDuration, currentTime)
+    }
+    val scope = rememberCoroutineScope()
+
+    WavySlider3(
+        value = displayValue,
+        onValueChange = {
+            isDragging = true
+            dragValue = it
+        },
+        onValueChangeFinished = {
+            scope.launch {
+                onAction(dragValue)
+                delay(1000.milliseconds)
+                isDragging = false
+            }
+        },
+        waveLength = 32.dp,
+        waveHeight = 8.dp,
+        waveThickness = 4.dp,
+        trackThickness = 4.dp,
+        incremental = false,
+    )
+}
+
+@Composable
+fun TitleFrame(title: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .padding(32.dp, 0.dp, 32.dp, 0.dp)
+            .height(48.dp)
+            .fillMaxWidth()
+            .background(
+                MaterialTheme.colorScheme.secondaryContainer,
+                shape = RoundedCornerShape(24.dp)
+            )
+            .clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Text(
+            title,
+            modifier = Modifier
+                .padding(32.dp, 0.dp, 32.dp, 0.dp),
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+fun ButtonRow(
+    onAction: (PlayerAction) -> Unit,
+    isPlaying: Boolean,
+    isShuffleEnabled: Boolean,
+    repeatMode: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth(),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(
+            12.dp,
+            alignment = Alignment.CenterHorizontally
+        )
+    ) {
+        // Shuffle, repeat and favourites buttons
+        Column(
+            modifier = Modifier
+                .size(64.dp, 128.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Bottom
+        ) {
+            //Shuffle
+            Button(
+                onClick = {
+                    onAction(PlayerAction.ToggleShuffle)
+                }, Modifier
+                    .height(32.dp)
+                    .fillMaxWidth()
+            )
+            {
+                Icon(
+                    imageVector = if (isShuffleEnabled) Icons.Default.ShuffleOn else Icons.Default.Shuffle,
+                    contentDescription = null
+                )
+            }
+
+            Spacer(Modifier.size(8.dp))
+            //Repeat
+            Button(
+                onClick = {
+                    onAction(PlayerAction.ToggleRepeat)
+                }, Modifier
+                    .height(32.dp)
+                    .fillMaxWidth()
+            )
+            {
+                Icon(
+                    imageVector = when (repeatMode) {
+                        Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
+                        Player.REPEAT_MODE_ALL -> Icons.Default.RepeatOn
+                        else -> Icons.Default.Repeat
+                    }, contentDescription = null
+                )
+            }
+        }
+
+        //Next and previous
+        Column(
+            modifier = Modifier
+                .height(88.dp)
+                .widthIn(55.dp, 112.dp)
+                .weight(1f)
+        ) {
+            Button(
+                onClick = { onAction(PlayerAction.SkipNext) }, modifier = Modifier
+                    .height(40.dp)
+                    .fillMaxWidth()
+            )
+            {
+                Icon(
+                    imageVector = Icons.Default.FastForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+            Spacer(modifier = Modifier.size(8.dp))
+            Button(
+                onClick = { onAction(PlayerAction.SkipPrevious) }, modifier = Modifier
+                    .height(40.dp)
+                    .fillMaxWidth()
+            )
+            {
+                Icon(
+                    imageVector = Icons.Default.FastRewind,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        }
+        //Play
+        Button(
+            onClick = { onAction(PlayerAction.PlayPause) }, modifier = Modifier
+                .size(100.dp, 124.dp)
+                .fillMaxHeight()
+        ) {
+            Icon(
+                imageVector = when (isPlaying) {
+                    false -> Icons.Default.PlayArrow
+                    true -> Icons.Default.Pause
+                },
+                tint = MaterialTheme.colorScheme.onPrimary,
+                contentDescription = null,
+            )
+        }
+    }
+}
